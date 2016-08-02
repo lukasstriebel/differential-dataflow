@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Lookup","A map from `K` to `V`."]]});

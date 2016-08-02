@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Variable` struct in crate `differential_dataflow`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Variable">
+
+    <title>differential_dataflow::operators::iterate::Variable - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>differential_dataflow</a>::<wbr><a href='../index.html'>operators</a>::<wbr><a href='index.html'>iterate</a></p><script>window.sidebarCurrent = {name: 'Variable', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../../index.html'>differential_dataflow</a>::<wbr><a href='../index.html'>operators</a>::<wbr><a href='index.html'>iterate</a>::<wbr><a class='struct' href=''>Variable</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-1535' class='srclink' href='../../../src/differential_dataflow/src/operators/iterate.rs.html#94-99' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Variable&lt;'a, G: <a class='trait' href='../../../timely/dataflow/scopes/trait.Scope.html' title='timely::dataflow::scopes::Scope'>Scope</a>, D: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>&gt; <span class='where'>where G::Timestamp: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a></span> {
+    // some fields omitted
+}</pre><div class='docblock'><p>A differential dataflow collection variable</p>
+
+<p>The <code>Variable</code> struct allows differential dataflow programs requiring more sophisticated
+iterative patterns than singly recursive iteration. For example: in mutual recursion two 
+collections evolve simultaneously.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl&lt;'a, G: <a class='trait' href='../../../timely/dataflow/scopes/trait.Scope.html' title='timely::dataflow::scopes::Scope'>Scope</a>, D: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>&gt; <a class='struct' href='../../../differential_dataflow/operators/iterate/struct.Variable.html' title='differential_dataflow::operators::iterate::Variable'>Variable</a>&lt;'a, G, D&gt; <span class='where'>where G::Timestamp: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a></span></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1542' class='srclink' href='../../../src/differential_dataflow/src/operators/iterate.rs.html#101-117' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.from' class='method'><code>fn <a href='#method.from' class='fnname'>from</a>(source: <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>&gt;, D&gt;) -&gt; <a class='struct' href='../../../differential_dataflow/operators/iterate/struct.Variable.html' title='differential_dataflow::operators::iterate::Variable'>Variable</a>&lt;'a, G, D&gt;</code></h4>
+<div class='docblock'><p>Creates a new <code>Variable</code> and a <code>Stream</code> representing its output, from a supplied <code>source</code> stream.</p>
+</div><h4 id='method.set' class='method'><code>fn <a href='#method.set' class='fnname'>set</a>(self, result: &amp;<a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>&gt;, D&gt;) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>&gt;, D&gt;</code></h4>
+<div class='docblock'><p>Adds a new source of data to the <code>Variable</code>.</p>
+</div></div><h2 id='deref-methods'>Methods from <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Deref.html' title='core::ops::Deref'>Deref</a>&lt;Target=<a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>&gt;, D&gt;&gt;</h2><div class='impl-items'><h4 id='method.map' class='method'><code>fn <a href='#method.map' class='fnname'>map</a>&lt;D2: <a class='trait' href='../../../timely/trait.Data.html' title='timely::Data'>Data</a>, L: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(D) -&gt; D2 + 'static&gt;(&amp;self, logic: L) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D2&gt;</code></h4>
+<div class='docblock'><p>Applies the supplied function to each element of the collection.</p>
+</div><h4 id='method.map_in_place' class='method'><code>fn <a href='#method.map_in_place' class='fnname'>map_in_place</a>&lt;L: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(&amp;mut D) + 'static&gt;(&amp;self, logic: L) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;</code></h4>
+<div class='docblock'><p>Applies the supplied function to each element of the collection, re-using allocated memory.</p>
+</div><h4 id='method.flat_map' class='method'><code>fn <a href='#method.flat_map' class='fnname'>flat_map</a>&lt;D2: <a class='trait' href='../../../timely/trait.Data.html' title='timely::Data'>Data</a>, I: <a class='trait' href='https://doc.rust-lang.org/nightly/core/iter/iterator/trait.Iterator.html' title='core::iter::iterator::Iterator'>Iterator</a>&lt;Item=D2&gt;, L: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(D) -&gt; I + 'static&gt;(&amp;self, logic: L) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D2&gt;</code></h4>
+<div class='docblock'><p>Applies the supplied function to each element of the collection.</p>
+</div><h4 id='method.negate' class='method'><code>fn <a href='#method.negate' class='fnname'>negate</a>(&amp;self) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;</code></h4>
+<div class='docblock'><p>Negates the counts of each element in the collection.</p>
+</div><h4 id='method.filter' class='method'><code>fn <a href='#method.filter' class='fnname'>filter</a>&lt;L: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(&amp;D) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a> + 'static&gt;(&amp;self, logic: L) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;</code></h4>
+<div class='docblock'><p>Retains only the elements of the collection satisifying the supplied predicate.</p>
+</div><h4 id='method.concat' class='method'><code>fn <a href='#method.concat' class='fnname'>concat</a>(&amp;self, other: &amp;<a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;</code></h4>
+<div class='docblock'><p>Adds the counts of elements from each collection.</p>
+</div><h4 id='method.enter' class='method'><code>fn <a href='#method.enter' class='fnname'>enter</a>&lt;'a, T: <a class='trait' href='../../../timely/progress/timestamp/trait.Timestamp.html' title='timely::progress::timestamp::Timestamp'>Timestamp</a>&gt;(&amp;self, child: &amp;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, T&gt;) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, T&gt;, D&gt;</code></h4>
+<div class='docblock'><p>Brings a collection into a nested scope.</p>
+</div><h4 id='method.enter_at' class='method'><code>fn <a href='#method.enter_at' class='fnname'>enter_at</a>&lt;'a, T: <a class='trait' href='../../../timely/progress/timestamp/trait.Timestamp.html' title='timely::progress::timestamp::Timestamp'>Timestamp</a>, F&gt;(&amp;self, child: &amp;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, T&gt;, initial: F) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, T&gt;, D&gt; <span class='where'>where F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(&amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a>D, <a class='type' href='../../../differential_dataflow/type.Delta.html' title='differential_dataflow::Delta'>Delta</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>) -&gt; T + 'static, G::Timestamp: <a class='trait' href='https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html' title='core::hash::Hash'>Hash</a>, T: <a class='trait' href='https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html' title='core::hash::Hash'>Hash</a></span></code></h4>
+<div class='docblock'><p>Brings a collection into a nested scope, at varying times.</p>
+
+<p>The <code>initial</code> function indicates the time at which each element of the collection should appear.</p>
+</div><h4 id='method.inspect' class='method'><code>fn <a href='#method.inspect' class='fnname'>inspect</a>&lt;F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnMut.html' title='core::ops::FnMut'>FnMut</a>(&amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a>D, <a class='type' href='../../../differential_dataflow/type.Delta.html' title='differential_dataflow::Delta'>Delta</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>) + 'static&gt;(&amp;self, func: F) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;</code></h4>
+<div class='docblock'><p>Applies a supplied function to each update. Diagnostic.</p>
+</div><h4 id='method.inspect_batch' class='method'><code>fn <a href='#method.inspect_batch' class='fnname'>inspect_batch</a>&lt;F: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.FnMut.html' title='core::ops::FnMut'>FnMut</a>(&amp;G::Timestamp, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a>D, <a class='type' href='../../../differential_dataflow/type.Delta.html' title='differential_dataflow::Delta'>Delta</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) + 'static&gt;(&amp;self, func: F) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;</code></h4>
+<div class='docblock'><p>Applies a supplied function to each batch of updates. Diagnostic.</p>
+</div><h4 id='method.probe' class='method'><code>fn <a href='#method.probe' class='fnname'>probe</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a><a class='struct' href='../../../timely/dataflow/operators/probe/struct.Handle.html' title='timely::dataflow::operators::probe::Handle'>Handle</a>&lt;G::Timestamp&gt;, <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a></code></h4>
+<div class='docblock'><p>Attaches a timely dataflow probe to the output of a collection.</p>
+
+<p>This probe is used to determine when the state of the collection has stabilized and can
+be read out. </p>
+</div><h4 id='method.scope' class='method'><code>fn <a href='#method.scope' class='fnname'>scope</a>(&amp;self) -&gt; G</code></h4>
+<div class='docblock'><p>The scope containing the underlying timely dataflow stream.</p>
+</div></div><div class='impl-items'><h4 id='method.leave' class='method'><code>fn <a href='#method.leave' class='fnname'>leave</a>(&amp;self) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, D&gt;</code></h4>
+<div class='docblock'><p>Returns the final value of a collection from a nested scope to its containing scope.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl&lt;'a, G: <a class='trait' href='../../../timely/dataflow/scopes/trait.Scope.html' title='timely::dataflow::scopes::Scope'>Scope</a>, D: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>&gt; <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Deref.html' title='core::ops::Deref'>Deref</a> for <a class='struct' href='../../../differential_dataflow/operators/iterate/struct.Variable.html' title='differential_dataflow::operators::iterate::Variable'>Variable</a>&lt;'a, G, D&gt; <span class='where'>where G::Timestamp: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a></span></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1554' class='srclink' href='../../../src/differential_dataflow/src/operators/iterate.rs.html#119-124' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='associatedtype.Target' class='type'><code>type <a href='https://doc.rust-lang.org/nightly/core/ops/trait.Deref.html#associatedtype.Target' class='type'>Target</a> = <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;<a class='struct' href='../../../timely/dataflow/scopes/child/struct.Child.html' title='timely::dataflow::scopes::child::Child'>Child</a>&lt;'a, G, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>&gt;, D&gt;</code></h4>
+<div class='docblock'><p>The resulting type after dereferencing</p>
+</div><h4 id='method.deref' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/ops/trait.Deref.html#tymethod.deref' class='fnname'>deref</a>(&amp;self) -&gt; &amp;Self::<a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Deref.html' title='core::ops::Deref'>Target</a></code></h4>
+<div class='docblock'><p>The method called to dereference a value</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "differential_dataflow";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script defer src="../../../search-index.js"></script>
+</body>
+</html>

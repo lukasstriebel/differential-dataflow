@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Count","Counts the number of occurrences of each element."],["Group","Extension trait for the `group` differential dataflow method"],["GroupArranged","Extension trait for the `group` operator on `Arrange<_>` data."]]});

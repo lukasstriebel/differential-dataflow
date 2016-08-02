@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BasicTrace","A collection of values indexed by `key` and `time`."],["DifferenceIterator","Enumerates `(&V,i32)` elements of a difference."],["Offset","An opaque offset into internal storage."],["TraceIterator","Enumerates pairs of time `&T` and `DifferenceIterator<V>` of `(&V, i32)` elements."]]});

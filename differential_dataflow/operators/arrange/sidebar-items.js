@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Arranged","A collection of `(K,V)` values as a timely stream and shared trace."]],"trait":[["ArrangeByKey","Arranges something as `(Key,Val)` pairs."],["ArrangeBySelf","Arranges something as `(Key,())` pairs, logically by `Key`."]]});

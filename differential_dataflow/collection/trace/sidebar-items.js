@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Trace","A collection trace, corresponding to quadruples `(Key, Index, Value, Delta)`."],["TraceRef","A reference to a `Trace` with a bound lifetime `'a`."]],"type":[["CollectionIterator","An iterator over weighted values."]]});

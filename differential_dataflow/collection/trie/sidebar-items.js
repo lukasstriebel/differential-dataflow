@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Merge","A merge-in-progress of two instances of `Trie<K, T, V>`."],["Trie","A collection of `(K, T, V, W)` tuples, grouped by `K` then `T` then `V`."]],"type":[["W","Changes to frequencies."]]});

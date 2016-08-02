@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Trace` trait in crate `differential_dataflow`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Trace">
+
+    <title>differential_dataflow::collection::trace::Trace - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>differential_dataflow</a>::<wbr><a href='../index.html'>collection</a>::<wbr><a href='index.html'>trace</a></p><script>window.sidebarCurrent = {name: 'Trace', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content trait">
+<h1 class='fqn'><span class='in-band'>Trait <a href='../../index.html'>differential_dataflow</a>::<wbr><a href='../index.html'>collection</a>::<wbr><a href='index.html'>trace</a>::<wbr><a class='trait' href=''>Trace</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-147' class='srclink' href='../../../src/differential_dataflow/src/collection/trace.rs.html#13-74' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub trait Trace <span class='where'>where &amp;'a Self: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.TraceRef.html' title='differential_dataflow::collection::trace::TraceRef'>TraceRef</a>&lt;'a, Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>, Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Value</a>&gt;</span> {
+    type <a href='#associatedtype.Key' class='type'>Key</a>: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>;
+    type <a href='#associatedtype.Index' class='type'>Index</a>: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a>;
+    type <a href='#associatedtype.Value' class='type'>Value</a>: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>;
+    fn <a href='#tymethod.set_difference' class='fnname'>set_difference</a>(&amp;mut self, time: Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>, accumulation: <a class='struct' href='../../../differential_dataflow/collection/compact/struct.Compact.html' title='differential_dataflow::collection::compact::Compact'>Compact</a>&lt;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Value</a>&gt;);
+
+    fn <a href='#method.trace' class='fnname'>trace</a>&lt;'a&gt;(&amp;'a self, key: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>) -&gt; &amp;'a Self::TIterator { ... }
+    fn <a href='#method.get_difference' class='fnname'>get_difference</a>&lt;'a&gt;(&amp;'a self, key: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, time: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;'a Self::VIterator&gt; { ... }
+    fn <a href='#method.get_collection' class='fnname'>get_collection</a>&lt;'a&gt;(&amp;'a mut self, key: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, time: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>) -&gt; <a class='type' href='../../../differential_dataflow/collection/trace/type.CollectionIterator.html' title='differential_dataflow::collection::trace::CollectionIterator'>CollectionIterator</a>&lt;&amp;'a Self::VIterator&gt; { ... }
+    fn <a href='#method.interesting_times' class='fnname'>interesting_times</a>&lt;'a&gt;(&amp;'a self, key: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, time: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>, stash: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>&gt;) { ... }
+}</pre><div class='docblock'><p>A collection trace, corresponding to quadruples <code>(Key, Index, Value, Delta)</code>.</p>
+</div>
+            <h2 id='associated-types'>Associated Types</h2>
+            <div class='methods'>
+        <h3 id='associatedtype.Key' class='method stab '><code>type <a href='#associatedtype.Key' class='type'>Key</a>: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a></code></h3><div class='docblock'><p>The data-parallel key.</p>
+</div><h3 id='associatedtype.Index' class='method stab '><code>type <a href='#associatedtype.Index' class='type'>Index</a>: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a></code></h3><div class='docblock'><p>Timestamp for changes to the collection.</p>
+</div><h3 id='associatedtype.Value' class='method stab '><code>type <a href='#associatedtype.Value' class='type'>Value</a>: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a></code></h3><div class='docblock'><p>Values associated with each key.</p>
+</div></div>
+            <h2 id='required-methods'>Required Methods</h2>
+            <div class='methods'>
+        <h3 id='tymethod.set_difference' class='method stab '><code>fn <a href='#tymethod.set_difference' class='fnname'>set_difference</a>(&amp;mut self, time: Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>, accumulation: <a class='struct' href='../../../differential_dataflow/collection/compact/struct.Compact.html' title='differential_dataflow::collection::compact::Compact'>Compact</a>&lt;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Value</a>&gt;)</code></h3><div class='docblock'><p>Introduces differences in <code>accumulation</code> at <code>time</code>.</p>
+</div></div>
+            <h2 id='provided-methods'>Provided Methods</h2>
+            <div class='methods'>
+        <h3 id='method.trace' class='method stab '><code>fn <a href='#method.trace' class='fnname'>trace</a>&lt;'a&gt;(&amp;'a self, key: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>) -&gt; &amp;'a Self::TIterator</code></h3><div class='docblock'><p>Iterates over times and differences for a specified key.</p>
+</div><h3 id='method.get_difference' class='method stab '><code>fn <a href='#method.get_difference' class='fnname'>get_difference</a>&lt;'a&gt;(&amp;'a self, key: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, time: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;'a Self::VIterator&gt;</code></h3><div class='docblock'><p>Iterates over differences for a specified key and time.</p>
+</div><h3 id='method.get_collection' class='method stab '><code>fn <a href='#method.get_collection' class='fnname'>get_collection</a>&lt;'a&gt;(&amp;'a mut self, key: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, time: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>) -&gt; <a class='type' href='../../../differential_dataflow/collection/trace/type.CollectionIterator.html' title='differential_dataflow::collection::trace::CollectionIterator'>CollectionIterator</a>&lt;&amp;'a Self::VIterator&gt;</code></h3><div class='docblock'><p>Accumulates differences for <code>key</code> at times less than or equal to <code>time</code>.</p>
+
+<p>The <code>&amp;mut self</code> argument allows the trace to use stashed storage for a merge.
+This is currently not done, because it appears to require unsafe (the storage
+type involves a <code>&amp;&#39;a</code>, which cannot outlive this method).</p>
+</div><h3 id='method.interesting_times' class='method stab '><code>fn <a href='#method.interesting_times' class='fnname'>interesting_times</a>&lt;'a&gt;(&amp;'a self, key: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Key</a>, time: &amp;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>, stash: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;Self::<a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Index</a>&gt;)</code></h3><div class='docblock'><p>Populates <code>stash</code> with times for key, closes under least upper bound.</p>
+</div></div>
+        <h2 id='implementors'>Implementors</h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><code>impl&lt;K, L, T&gt; Trace for <a class='struct' href='../../../differential_dataflow/collection/count/struct.Count.html' title='differential_dataflow::collection::count::Count'>Count</a>&lt;K, T, L&gt; <span class='where'>where K: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a> + <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html' title='core::cmp::Ord'>Ord</a> + 'static, L: <a class='trait' href='../../../differential_dataflow/collection/lookup/trait.Lookup.html' title='differential_dataflow::collection::lookup::Lookup'>Lookup</a>&lt;K, <a class='struct' href='../../../differential_dataflow/collection/count/struct.Offset.html' title='differential_dataflow::collection::count::Offset'>Offset</a>&gt; + 'static, T: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a> + 'static</span></code></li>
+<li><code>impl&lt;K, V, L, T&gt; Trace for <a class='struct' href='../../../differential_dataflow/collection/basic/struct.BasicTrace.html' title='differential_dataflow::collection::basic::BasicTrace'>BasicTrace</a>&lt;K, T, V, L&gt; <span class='where'>where K: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, V: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, L: <a class='trait' href='../../../differential_dataflow/collection/lookup/trait.Lookup.html' title='differential_dataflow::collection::lookup::Lookup'>Lookup</a>&lt;K, <a class='struct' href='../../../differential_dataflow/collection/basic/struct.Offset.html' title='differential_dataflow::collection::basic::Offset'>Offset</a>&gt; + 'static, T: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a> + 'static</span></code></li>
+</ul><script type="text/javascript" async
+                         src="../../../implementors/differential_dataflow/collection/trace/trait.Trace.js">
+                 </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "differential_dataflow";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script defer src="../../../search-index.js"></script>
+</body>
+</html>

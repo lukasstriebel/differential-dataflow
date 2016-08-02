@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Join","Join implementations for `(key,val)` data."],["JoinArranged","Matches the elements of two arranged traces."]]});

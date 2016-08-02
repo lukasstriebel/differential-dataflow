@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Arranged` struct in crate `differential_dataflow`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Arranged">
+
+    <title>differential_dataflow::operators::arrange::Arranged - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>differential_dataflow</a>::<wbr><a href='../index.html'>operators</a>::<wbr><a href='index.html'>arrange</a></p><script>window.sidebarCurrent = {name: 'Arranged', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../../index.html'>differential_dataflow</a>::<wbr><a href='../index.html'>operators</a>::<wbr><a href='index.html'>arrange</a>::<wbr><a class='struct' href=''>Arranged</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-948' class='srclink' href='../../../src/differential_dataflow/src/operators/arrange.rs.html#34-49' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Arranged&lt;G: <a class='trait' href='../../../timely/dataflow/scopes/trait.Scope.html' title='timely::dataflow::scopes::Scope'>Scope</a>, T: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Trace</a>&lt;Index=G::Timestamp&gt;&gt; <span class='where'>where T::Key: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, T::Value: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, G::Timestamp: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a>, &amp;'a T: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.TraceRef.html' title='differential_dataflow::collection::trace::TraceRef'>TraceRef</a>&lt;'a, T::Key, T::Index, T::Value&gt;</span> {
+    pub stream: <a class='struct' href='../../../timely/dataflow/stream/struct.Stream.html' title='timely::dataflow::stream::Stream'>Stream</a>&lt;G, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a><a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;T::Key&gt;, <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>&gt;, <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a>T::Value, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>&gt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>&gt;,
+    pub trace: <a class='struct' href='https://doc.rust-lang.org/nightly/alloc/rc/struct.Rc.html' title='alloc::rc::Rc'>Rc</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/core/cell/struct.RefCell.html' title='core::cell::RefCell'>RefCell</a>&lt;T&gt;&gt;,
+}</pre><div class='docblock'><p>A collection of <code>(K,V)</code> values as a timely stream and shared trace.</p>
+
+<p>An <code>Arranged</code> performs the task of arranging a keyed collection once, 
+allowing multiple differential operators to use the same trace. This 
+saves on computation and memory, in exchange for some cognitive overhead
+in writing differential operators: each must pay enough care to signals
+from the <code>stream</code> field to know the subset of <code>trace</code> it has logically 
+received.</p>
+</div><h2 class='fields'>Fields</h2>
+<table><tr class='stab '>
+                             <td id='structfield.stream'><code>stream</code></td><td><div class='docblock'><p>A stream containing arranged updates.</p>
+
+<p>This stream may be reduced to just the keys, with the expectation that looking up the
+updated values in the associated trace should be more efficient than cloning the values.
+Users who need the values can obviously use the original stream.</p>
+</div></td></tr><tr class='stab '>
+                             <td id='structfield.trace'><code>trace</code></td><td><div class='docblock'><p>A shared trace, updated by the <code>Arrange</code> operator and readable by others.</p>
+</div></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl&lt;G: <a class='trait' href='../../../timely/dataflow/scopes/trait.Scope.html' title='timely::dataflow::scopes::Scope'>Scope</a>, T: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Trace</a>&lt;Index=G::Timestamp&gt;&gt; <a class='struct' href='../../../differential_dataflow/operators/arrange/struct.Arranged.html' title='differential_dataflow::operators::arrange::Arranged'>Arranged</a>&lt;G, T&gt; <span class='where'>where T::Key: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, T::Value: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, G::Timestamp: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a>, &amp;'a T: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.TraceRef.html' title='differential_dataflow::collection::trace::TraceRef'>TraceRef</a>&lt;'a, T::Key, T::Index, T::Value&gt;</span></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-954' class='srclink' href='../../../src/differential_dataflow/src/operators/arrange.rs.html#51-79' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.as_collection' class='method'><code>fn <a href='#method.as_collection' class='fnname'>as_collection</a>(&amp;self) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a>T::Key, T::Value<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>&gt;</code></h4>
+<div class='docblock'><p>Flattens the stream into a <code>Collection</code>.</p>
+
+<p>This operator is not obviously more efficient than using the <code>Collection</code> that is input
+to the <code>Arrange</code> operator. However, this may be the only way to recover a collection from 
+only the <code>Arranged</code> type.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl&lt;G, K, L&gt; <a class='trait' href='../../../differential_dataflow/operators/threshold/trait.ThresholdArranged.html' title='differential_dataflow::operators::threshold::ThresholdArranged'>ThresholdArranged</a>&lt;G, K&gt; for <a class='struct' href='../../../differential_dataflow/operators/arrange/struct.Arranged.html' title='differential_dataflow::operators::arrange::Arranged'>Arranged</a>&lt;G, <a class='struct' href='../../../differential_dataflow/collection/count/struct.Count.html' title='differential_dataflow::collection::count::Count'>CountTrace</a>&lt;K, G::Timestamp, L&gt;&gt; <span class='where'>where G: <a class='trait' href='../../../timely/dataflow/scopes/trait.Scope.html' title='timely::dataflow::scopes::Scope'>Scope</a>, K: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, L: <a class='trait' href='../../../differential_dataflow/collection/lookup/trait.Lookup.html' title='differential_dataflow::collection::lookup::Lookup'>Lookup</a>&lt;K, <a class='struct' href='../../../differential_dataflow/collection/count/struct.Offset.html' title='differential_dataflow::collection::count::Offset'>Offset</a>&gt; + 'static, G::Timestamp: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a></span></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1194' class='srclink' href='../../../src/differential_dataflow/src/operators/threshold.rs.html#104-220' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.threshold' class='method'><code>fn <a href='../../../differential_dataflow/operators/threshold/trait.ThresholdArranged.html#tymethod.threshold' class='fnname'>threshold</a>&lt;U, KH, Look, LookG, Logic&gt;(&amp;self, key_h: KH, look: LookG, logic: Logic) -&gt; <a class='struct' href='../../../differential_dataflow/operators/arrange/struct.Arranged.html' title='differential_dataflow::operators::arrange::Arranged'>Arranged</a>&lt;G, <a class='struct' href='../../../differential_dataflow/collection/count/struct.Count.html' title='differential_dataflow::collection::count::Count'>CountTrace</a>&lt;K, G::Timestamp, Look&gt;&gt; <span class='where'>where U: <a class='trait' href='../../../timely_sort/trait.Unsigned.html' title='timely_sort::Unsigned'>Unsigned</a> + <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a>, KH: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(&amp;K) -&gt; U + 'static, Look: <a class='trait' href='../../../differential_dataflow/collection/lookup/trait.Lookup.html' title='differential_dataflow::collection::lookup::Lookup'>Lookup</a>&lt;K, <a class='struct' href='../../../differential_dataflow/collection/count/struct.Offset.html' title='differential_dataflow::collection::count::Offset'>Offset</a>&gt; + 'static, LookG: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>) -&gt; Look, Logic: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(&amp;K, <a class='type' href='../../../differential_dataflow/type.Delta.html' title='differential_dataflow::Delta'>Delta</a>) -&gt; <a class='type' href='../../../differential_dataflow/type.Delta.html' title='differential_dataflow::Delta'>Delta</a> + 'static</span></code></h4>
+<div class='docblock'><p>Groups arranged data using a key hash function, a lookup generator, and user logic. <a href="../../../differential_dataflow/operators/threshold/trait.ThresholdArranged.html#tymethod.threshold">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl&lt;G, K, V, L&gt; <a class='trait' href='../../../differential_dataflow/operators/group/trait.GroupArranged.html' title='differential_dataflow::operators::group::GroupArranged'>GroupArranged</a>&lt;G, K, V&gt; for <a class='struct' href='../../../differential_dataflow/operators/arrange/struct.Arranged.html' title='differential_dataflow::operators::arrange::Arranged'>Arranged</a>&lt;G, <a class='struct' href='../../../differential_dataflow/collection/basic/struct.BasicTrace.html' title='differential_dataflow::collection::basic::BasicTrace'>BasicTrace</a>&lt;K, G::Timestamp, V, L&gt;&gt; <span class='where'>where G: <a class='trait' href='../../../timely/dataflow/scopes/trait.Scope.html' title='timely::dataflow::scopes::Scope'>Scope</a>, K: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, V: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, L: <a class='trait' href='../../../differential_dataflow/collection/lookup/trait.Lookup.html' title='differential_dataflow::collection::lookup::Lookup'>Lookup</a>&lt;K, <a class='struct' href='../../../differential_dataflow/collection/basic/struct.Offset.html' title='differential_dataflow::collection::basic::Offset'>Offset</a>&gt; + 'static, G::Timestamp: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a></span></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1350' class='srclink' href='../../../src/differential_dataflow/src/operators/group.rs.html#143-283' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.group' class='method'><code>fn <a href='../../../differential_dataflow/operators/group/trait.GroupArranged.html#tymethod.group' class='fnname'>group</a>&lt;V2, U, KH, Look, LookG, Logic&gt;(&amp;self, key_h: KH, look: LookG, logic: Logic) -&gt; <a class='struct' href='../../../differential_dataflow/operators/arrange/struct.Arranged.html' title='differential_dataflow::operators::arrange::Arranged'>Arranged</a>&lt;G, <a class='struct' href='../../../differential_dataflow/collection/basic/struct.BasicTrace.html' title='differential_dataflow::collection::basic::BasicTrace'>BasicTrace</a>&lt;K, G::Timestamp, V2, Look&gt;&gt; <span class='where'>where V2: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, U: <a class='trait' href='../../../timely_sort/trait.Unsigned.html' title='timely_sort::Unsigned'>Unsigned</a> + <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a>, KH: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(&amp;K) -&gt; U + 'static, Look: <a class='trait' href='../../../differential_dataflow/collection/lookup/trait.Lookup.html' title='differential_dataflow::collection::lookup::Lookup'>Lookup</a>&lt;K, <a class='struct' href='../../../differential_dataflow/collection/basic/struct.Offset.html' title='differential_dataflow::collection::basic::Offset'>Offset</a>&gt; + 'static, LookG: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>) -&gt; Look, Logic: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(&amp;K, &amp;mut <a class='type' href='../../../differential_dataflow/collection/trace/type.CollectionIterator.html' title='differential_dataflow::collection::trace::CollectionIterator'>CollectionIterator</a>&lt;<a class='struct' href='../../../differential_dataflow/collection/basic/struct.DifferenceIterator.html' title='differential_dataflow::collection::basic::DifferenceIterator'>DifferenceIterator</a>&lt;V&gt;&gt;, &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(</a>V2, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>)</a>&gt;) + 'static</span></code></h4>
+<div class='docblock'><p>Groups arranged data using a key hash function, a lookup generator, and user logic. <a href="../../../differential_dataflow/operators/group/trait.GroupArranged.html#tymethod.group">Read more</a></p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl&lt;TS: <a class='trait' href='../../../timely/progress/timestamp/trait.Timestamp.html' title='timely::progress::timestamp::Timestamp'>Timestamp</a>, G: <a class='trait' href='../../../timely/dataflow/scopes/trait.Scope.html' title='timely::dataflow::scopes::Scope'>Scope</a>&lt;Timestamp=TS&gt;, T: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Trace</a>&lt;Index=TS&gt; + 'static&gt; <a class='trait' href='../../../differential_dataflow/operators/join/trait.JoinArranged.html' title='differential_dataflow::operators::join::JoinArranged'>JoinArranged</a>&lt;G, T::Key, T::Value&gt; for <a class='struct' href='../../../differential_dataflow/operators/arrange/struct.Arranged.html' title='differential_dataflow::operators::arrange::Arranged'>Arranged</a>&lt;G, T&gt; <span class='where'>where G::Timestamp: <a class='trait' href='../../../differential_dataflow/lattice/trait.Lattice.html' title='differential_dataflow::lattice::Lattice'>Lattice</a>, &amp;'a T: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.TraceRef.html' title='differential_dataflow::collection::trace::TraceRef'>TraceRef</a>&lt;'a, T::Key, T::Index, T::Value&gt;</span></code></span><span class='out-of-band'><div class='ghost'></div><a id='src-1707' class='srclink' href='../../../src/differential_dataflow/src/operators/join.rs.html#295-432' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.join' class='method'><code>fn <a href='../../../differential_dataflow/operators/join/trait.JoinArranged.html#tymethod.join' class='fnname'>join</a>&lt;T2, R, RF&gt;(&amp;self, other: &amp;<a class='struct' href='../../../differential_dataflow/operators/arrange/struct.Arranged.html' title='differential_dataflow::operators::arrange::Arranged'>Arranged</a>&lt;G, T2&gt;, result: RF) -&gt; <a class='struct' href='../../../differential_dataflow/struct.Collection.html' title='differential_dataflow::Collection'>Collection</a>&lt;G, R&gt; <span class='where'>where T2: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.Trace.html' title='differential_dataflow::collection::trace::Trace'>Trace</a>&lt;Key=T::Key, Index=G::Timestamp&gt; + 'static, R: <a class='trait' href='../../../differential_dataflow/trait.Data.html' title='differential_dataflow::Data'>Data</a>, RF: <a class='trait' href='https://doc.rust-lang.org/nightly/core/ops/trait.Fn.html' title='core::ops::Fn'>Fn</a>(&amp;T::Key, &amp;T::Value, &amp;T2::Value) -&gt; R + 'static, &amp;'a T2: <a class='trait' href='../../../differential_dataflow/collection/trace/trait.TraceRef.html' title='differential_dataflow::collection::trace::TraceRef'>TraceRef</a>&lt;'a, T2::Key, T2::Index, T2::Value&gt;</span></code></h4>
+<div class='docblock'><p>Joins two arranged collections with the same key type. <a href="../../../differential_dataflow/operators/join/trait.JoinArranged.html#tymethod.join">Read more</a></p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "differential_dataflow";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script defer src="../../../search-index.js"></script>
+</body>
+</html>

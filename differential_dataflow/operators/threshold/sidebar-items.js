@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Threshold","Extension trait for the `threshold` differential dataflow method"],["ThresholdArranged","Extension trait for the `group` operator on `Arrange<_>` data."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Count","A trace specialized for the value type `()`."],["CountIterator","Enumerates pairs of time `&T` and `i32`."],["Offset","An opaque offset into internal storage."],["WeightIterator","An iterator over weighted references to `()`."]]});
