@@ -30,6 +30,8 @@ itertools="0.4"
 fnv="1.0.2"
 linear-map = "0.0.4"
 vec_map = "0.6.0"
+nom = { version = "^2.0.0", features = ["verbose-errors"] }
+abomonation="0.4.4"
 
 [features]
 default = []
