@@ -27,6 +27,45 @@ use std::io::prelude::*;
 use std::error::Error;
 use std::collections::HashMap;
 
+//////////////////////////////
+//                          //
+//       QUERYTYPES         //
+//                          //
+//////////////////////////////
+
+#[derive(Debug)]
+pub struct Query {
+    select: Vec<Expr>,
+    vvhere: Vec<Expr>,
+}
+
+#[derive(Debug)]
+pub enum Expr {    
+    Attribute  (Attribute),
+    Literal    (Literal),
+    Label      (String),
+    Add        (Box<Expr>, Box<Expr>),
+    Sub        (Box<Expr>, Box<Expr>),
+    Mul        (Box<Expr>, Box<Expr>),
+    Div        (Box<Expr>, Box<Expr>),
+    Modulo     (Box<Expr>, Box<Expr>),
+    Equal      (Box<Expr>, Box<Expr>),
+    NotEqual   (Box<Expr>, Box<Expr>),
+    Greater    (Box<Expr>, Box<Expr>),
+    GreaterEq  (Box<Expr>, Box<Expr>),
+    Smaller    (Box<Expr>, Box<Expr>),
+    SmallerEq  (Box<Expr>, Box<Expr>),
+    Like       (Box<Expr>, Box<Expr>),
+    And        (Box<Expr>, Box<Expr>),
+    Or         (Box<Expr>, Box<Expr>),
+    Not        (Box<Expr>),
+}
+
+#[derive(Debug)]
+pub struct Attribute { 
+    name: String,
+    variable: String,
+}
 
 //////////////////////////////
 //                          //
@@ -419,32 +458,22 @@ fn main() {
             let (edge_input, graph) = scope.new_input();
 
             let probe = evaluate(&Collection::new(graph), &Collection::new(query)).probe().0;
+            
             (edge_input, query_input, probe)
         });
 
         if computation.index() == 0 { // this block will be executed by worker/thread 0
-            // Step 0: read your input file from disk and
-            // push edges using the following method:
-
-            /*let mut file = File::open(edge_filepath).unwrap();
+            
+            query.send(("select v.name".into(),1));
+            let mut file = File::open(&edge_filepath).unwrap();
             let mut s = String::new();
              
             match file.read_to_string(&mut s) {
                 Err(error) => panic!("Couldn't read file {}: {}", edge_filepath,
                                                            error.description()),
                 Ok(_) => println!("{} successfully opened\n", edge_filepath),
-            }*/
-
-
-            let filename = "graph.txt";
-            let mut file = File::open(filename).unwrap();
-            let mut s = String::new();
-             
-            match file.read_to_string(&mut s) {
-                Err(error) => panic!("Couldn't read file {}: {}", filename,
-                                                           error.description()),
-                Ok(_) => println!("{} successfully opened\n", filename),
             }
+
 
             // Parse the input
             let result = graph_parser(s.as_bytes());
@@ -457,7 +486,7 @@ fn main() {
                         let source:Node = value.nodes[elem.source as usize -1].clone();
                         let target:Node = value.nodes[elem.target as usize -1].clone();
 
-                        println!("{:?} -> \n {:?}\n",source,target); 
+                        //println!("{:?} -> \n {:?}\n",source,target); 
                         
 
                         graph.send(((source.into(),target.into()),1));
@@ -486,38 +515,80 @@ fn main() {
         // do the job
         computation.step_while(|| probe.lt(graph.time()));
 
-        if computation.index() == 0 {
-            println!("stable; elapsed: {:?}", timer.elapsed());
-        }
+        //if computation.index() == 0 {
+          //  println!("stable; elapsed: {:?}", timer.elapsed());
+        //}
 
     }).unwrap();
 
-    //println!("\nEdge List\n{:?}", diff_edges);
 
-
-    /*let graph = graph("1 * { 'Server' }             name:'center'   ip:'192.168.0.0'\n\
-                       2 * { 'VM' }                 name:'node1'    ip:'192.168.0.1'\n\
-                       3 * { 'Firewall' 'VM' }      name:'node2'    ip:'192.168.0.2'\n\
-                       4 * { 'Host' 'Server' 'VM' } name:'node3'    ip:'192.168.0.3'\n\
-                       5 * { 'Switch' }             name:'node4'    ip:'192.168.0.4'\n\
-                       1 2 'connects' bandwidth:1.5 utilization:0.14\n\
-                       1 3 'connects' bandwidth:2.1 utilization:0.62\n\
-                       1 4 'connects' bandwidth:1.1 utilization:0.38\n\
-                       1 5 'connects' bandwidth:2.9 utilization:0.56\n".as_bytes());
-*/
 }
-
 
 fn evaluate<G: Scope>(edges: &Collection<G, EdgeTest>, queries: &Collection<G, String>) -> Collection<G, EdgeTest>
 where G::Timestamp: Lattice {
+
+
+    edges.filter(|x| {true})
 
     // Step 0: translate query into a dataflow
 
     // Step 1: evaluate query on the graph
 
-    // Dummy: clone the input edges and return it as output
-    edges.clone()
 }
+
+fn evaluate2<G: Scope>(edges: &Collection<G, EdgeTest>, queries: &Collection<G, String>) -> String
+where G::Timestamp: Lattice {
+
+    //FIXME: Use non-retarded way to access elements (if there is one, which seems unlikely.....)
+    let x = queries.map(|query| {
+        //println!("{:?}", query);
+        (1)}
+        );
+
+
+
+    let query = Query{ 
+            select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
+                         Expr::Attribute(Attribute{name:"s".into(), variable:"status".into()})],
+            vvhere: vec![
+                Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})),
+                Box::new(Expr::Literal(Literal::Integer(40))))
+            ]};
+
+    
+    for condition in query.vvhere {
+        match condition{
+            //Expr::Equal(x,y) => {f = |some| some == y;},
+            _ => {}
+        }
+        //edges = edges.filter(|x|)
+    }
+    let mut result;
+    edges.map(|x| {
+        let (a,b) = x;
+        let mut fulfills = true;
+        for condition in query.vvhere {
+        match condition{
+            Expr::Equal(x,y) => {fulfills = a.attribute_values[0] == into_raw(y);},
+            _ => {fulfills = false;}
+        }
+        if fulfills {
+            result = a;
+        }
+        //edges = edges.filter(|x|)
+    }
+        (1)
+    });
+    "hi".into()
+
+    // Step 0: translate query into a dataflow
+
+    // Step 1: evaluate query on the graph
+
+}
+
+
+
 
 
 
