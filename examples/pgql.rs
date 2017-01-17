@@ -26,6 +26,7 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::error::Error;
 use std::collections::HashMap;
+use std::cmp::Ordering;
 
 //////////////////////////////
 //                          //
@@ -96,6 +97,26 @@ impl From<Node> for TimelyNode {
         }
     }
 }
+
+/*impl PartialEq for TimelyNode {
+    fn eq(&self, other: &TimelyNode) -> bool {
+        self.id == other.id
+    }
+}
+
+impl PartialOrd for TimelyNode {
+    fn partial_cmp(&self, other: &TimelyNode) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for TimelyNode{
+    fn cmp(&self, other: &TimelyNode) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+impl Eq for TimelyNode {}*/
 
 macro_rules! try_option {
     ($expr:expr) => (match $expr {
@@ -555,30 +576,19 @@ where G::Timestamp: Lattice {
                 Box::new(Expr::Literal(Literal::Integer(40))))
             ]};
 
-    
-    for condition in query.vvhere {
-        match condition{
-            //Expr::Equal(x,y) => {f = |some| some == y;},
-            _ => {}
-        }
-        //edges = edges.filter(|x|)
-    }
-    let mut result;
-    edges.map(|x| {
+    //let mut result;
+    /*edges.map(|x| {
         let (a,b) = x;
         let mut fulfills = true;
-        for condition in query.vvhere {
-        match condition{
-            Expr::Equal(x,y) => {fulfills = a.attribute_values[0] == into_raw(y);},
-            _ => {fulfills = false;}
-        }
+        //for condition in query.vvhere {
+        
         if fulfills {
             result = a;
         }
         //edges = edges.filter(|x|)
     }
         (1)
-    });
+    );*/
     "hi".into()
 
     // Step 0: translate query into a dataflow
@@ -587,7 +597,65 @@ where G::Timestamp: Lattice {
 
 }
 
+fn evaluateNode (node: &Node, constraints: Vec<Expr>) -> bool {
+    let mut result = true;
+    for constraint in constraints {
+        result = result && evaluateExpr(node, constraint);
+    }
+    (result)
+}
 
+fn evaluateBoolExpr (node: &Node, constraint: Expr) -> bool {
+    match constraint{
+        Expr::Equal(left, right) => unwrapExpr(Box::into_raw(left)) = unwrapExpr(Box::into_raw(right)),
+        Expr::NotEqual(left, right) => unwrapExpr(Box::into_raw(left)) != unwrapExpr(Box::into_raw(right)),
+        Expr::Smaller(left, right) => unwrapArithExpr(Box::into_raw(left)) < unwrapArithExpr(Box::into_raw(right)),
+        Expr::SmallerEq(left, right) => unwrapArithExpr(Box::into_raw(left)) <= unwrapArithExpr(Box::into_raw(right)),
+        Expr::Greater(left, right) => unwrapArithExpr(Box::into_raw(left)) > unwrapArithExpr(Box::into_raw(right)),
+        Expr::GreaterEq(left, right) => unwrapArithExpr(Box::into_raw(left)) >= unwrapArithExpr(Box::into_raw(right)),
+        Expr::Like(left, right) => unwrapStringLiteral(Box::into_raw(left)) < unwrapStringLiteral(Box::into_raw(right)),
+        Expr::And(left, right) => evaluateBoolExpr(Box::into_raw(left)) && evaluateBoolExpr(Box::into_raw(right)),
+        Expr::Or(left, right) => evaluateBoolExpr(Box::into_raw(left)) || evaluateBoolExpr(Box::into_raw(right)),
+        Expr::Not(value) => !evaluateBoolExpr(Box::into_raw(value)),
+        Expr::Label(label) => node.label.contains(label),
+        
+        _ => panic!("Non Boolean value found!")
+    }
+}
+
+fn unwrapArithExpr (expression: *mut Expr) -> f32 {
+    match unsafe {*expression} {
+        Expr::Literal(value) => unwrapArithLiteral(value),
+        Expr::Add(left, right) => unwrapArithExpr(Box::into_raw(left)) + unwrapArithExpr(Box::into_raw(right)),
+        Expr::Sub(left, right) => unwrapArithExpr(Box::into_raw(left)) - unwrapArithExpr(Box::into_raw(right)),
+        Expr::Mul(left, right) => unwrapArithExpr(Box::into_raw(left)) * unwrapArithExpr(Box::into_raw(right)),
+        Expr::Div(left, right) => unwrapArithExpr(Box::into_raw(left)) / unwrapArithExpr(Box::into_raw(right)),
+        Expr::Modulo(left, right) => unwrapArithExpr(Box::into_raw(left)) % unwrapArithExpr(Box::into_raw(right)),        
+        _ => panic!("Non Arithmetric value found!")
+    }
+}
+
+fn unwrapArithLiteral (literal: Literal) -> f32 {
+    match literal {
+        Literal::Integer(value) => value as f32,
+        Literal::Float(value) => value,
+        _ => panic!("Arithmetric value was expected!")
+    }
+}
+
+fn unwrapStringLiteral (literal: Literal) -> String {
+    match literal {
+        Literal::Str(value) => value,
+        _ => panic!("String value was expected!")
+    }
+}
+
+fn unwrapBoolLiteral (literal: Literal) -> bool {
+    match literal {
+        Literal::Boolean(value) => value,
+        _ => panic!("Boolean value was expected!")
+    }
+}
 
 
 
