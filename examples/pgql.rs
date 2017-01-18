@@ -461,8 +461,9 @@ impl Display for Graph
 
 fn main() { 
 
+    println!("{:?}", evaluate2());
 
-    let edge_filepath: String = std::env::args().nth(1).unwrap();
+    /*let edge_filepath: String = std::env::args().nth(1).unwrap();
 
     // define a new computational scope, in which to run BFS
     timely::execute_from_args(std::env::args().skip(1), move |computation| {
@@ -540,7 +541,7 @@ fn main() {
           //  println!("stable; elapsed: {:?}", timer.elapsed());
         //}
 
-    }).unwrap();
+    }).unwrap();*/
 
 
 }
@@ -557,24 +558,17 @@ where G::Timestamp: Lattice {
 
 }
 
-fn evaluate2<G: Scope>(edges: &Collection<G, EdgeTest>, queries: &Collection<G, String>) -> String
-where G::Timestamp: Lattice {
+fn evaluate2
+//<G: Scope>(edges: &Collection<G, EdgeTest>, queries: &Collection<G, String>) 
+()-> String
+//where G::Timestamp: Lattice 
+{
 
     //FIXME: Use non-retarded way to access elements (if there is one, which seems unlikely.....)
-    let x = queries.map(|query| {
+    /*let x = queries.map(|query| {
         //println!("{:?}", query);
         (1)}
-        );
-
-
-
-    let query = Query{ 
-            select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
-                         Expr::Attribute(Attribute{name:"s".into(), variable:"status".into()})],
-            vvhere: vec![
-                Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})),
-                Box::new(Expr::Literal(Literal::Integer(40))))
-            ]};
+        );*/
 
     //let mut result;
     /*edges.map(|x| {
@@ -589,7 +583,35 @@ where G::Timestamp: Lattice {
     }
         (1)
     );*/
-    "hi".into()
+
+
+    let query = Query{ 
+        select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
+                     Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})],
+        vvhere: vec![
+            Expr::Like(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()})),
+
+                    Box::new(Expr::Literal(Literal::Str("lice".into()))))
+    ]};
+
+
+    let mut map = HashMap::new();
+    map.insert("name".into(), Literal::Str("Alice".into()));    
+    map.insert("age".into(), Literal::Integer(30));
+    map.insert("salary".into(), Literal::Integer(20));
+    let node = Node{id:0, label: vec!["Server".into()], attribute_values: map};
+   
+    if checkNode(&node, query.vvhere) {
+        for attr in query.select {
+            match attr {
+                Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.variable)),
+                _ => println!("failure")
+            }
+            
+        }
+    }
+    
+    "End".into()
 
     // Step 0: translate query into a dataflow
 
@@ -597,7 +619,7 @@ where G::Timestamp: Lattice {
 
 }
 
-fn evaluateNode (node: &Node, constraints: Vec<Expr>) -> bool {
+fn checkNode (node: &Node, constraints: Vec<Expr>) -> bool {
     let mut result = true;
     for constraint in constraints {
         result = result && evaluateExpr(node, constraint);
@@ -605,32 +627,70 @@ fn evaluateNode (node: &Node, constraints: Vec<Expr>) -> bool {
     (result)
 }
 
-fn evaluateBoolExpr (node: &Node, constraint: Expr) -> bool {
+fn evaluateExpr (node: &Node, constraint: Expr) -> bool {
     match constraint{
-        Expr::Equal(left, right) => unwrapExpr(Box::into_raw(left)) = unwrapExpr(Box::into_raw(right)),
-        Expr::NotEqual(left, right) => unwrapExpr(Box::into_raw(left)) != unwrapExpr(Box::into_raw(right)),
-        Expr::Smaller(left, right) => unwrapArithExpr(Box::into_raw(left)) < unwrapArithExpr(Box::into_raw(right)),
-        Expr::SmallerEq(left, right) => unwrapArithExpr(Box::into_raw(left)) <= unwrapArithExpr(Box::into_raw(right)),
-        Expr::Greater(left, right) => unwrapArithExpr(Box::into_raw(left)) > unwrapArithExpr(Box::into_raw(right)),
-        Expr::GreaterEq(left, right) => unwrapArithExpr(Box::into_raw(left)) >= unwrapArithExpr(Box::into_raw(right)),
-        Expr::Like(left, right) => unwrapStringLiteral(Box::into_raw(left)) < unwrapStringLiteral(Box::into_raw(right)),
-        Expr::And(left, right) => evaluateBoolExpr(Box::into_raw(left)) && evaluateBoolExpr(Box::into_raw(right)),
-        Expr::Or(left, right) => evaluateBoolExpr(Box::into_raw(left)) || evaluateBoolExpr(Box::into_raw(right)),
-        Expr::Not(value) => !evaluateBoolExpr(Box::into_raw(value)),
-        Expr::Label(label) => node.label.contains(label),
+        Expr::Equal(left, right) => unwrapExpr(*left, node) == unwrapExpr(*right, node),
+        Expr::NotEqual(left, right) => unwrapExpr(*left, node) != unwrapExpr(*right, node),
+        Expr::Smaller(left, right) => unwrapArithExpr(*left, node) < unwrapArithExpr(*right, node),
+        Expr::SmallerEq(left, right) => unwrapArithExpr(*left, node) <= unwrapArithExpr(*right, node),
+        Expr::Greater(left, right) => unwrapArithExpr(*left, node) > unwrapArithExpr(*right, node),
+        Expr::GreaterEq(left, right) => unwrapArithExpr(*left, node) >= unwrapArithExpr(*right, node),
+        Expr::Like(left, right) => (&*unwrapStringExpr(*left, node)).contains(&*unwrapStringExpr(*right, node)),
+        Expr::And(left, right) => unwrapBoolExpr(*left, node) && unwrapBoolExpr(*right, node),
+        Expr::Or(left, right) => unwrapBoolExpr(*left, node) || unwrapBoolExpr(*right, node),
+        Expr::Not(value) => !unwrapBoolExpr(*value, node),
+        Expr::Label(label) => node.label.contains(&label),
         
         _ => panic!("Non Boolean value found!")
     }
 }
 
-fn unwrapArithExpr (expression: *mut Expr) -> f32 {
-    match unsafe {*expression} {
+
+fn unwrapExpr(expression:  Expr, node: &Node) -> bool {
+    return true;
+}
+
+fn unwrapBoolExpr(expression: Expr, node: &Node) -> bool {
+    match expression {
+        Expr::Literal(value) => unwrapBoolLiteral(value),
+        Expr::And(left, right) => unwrapBoolExpr(*left, node) && unwrapBoolExpr(*right, node),
+        Expr::Or(left, right) => unwrapBoolExpr(*left, node) || unwrapBoolExpr(*right, node),
+        Expr::Not(value) => !unwrapBoolExpr(*value, node),
+        Expr::Attribute(attribute) => {
+            match node.attribute_values.get(&attribute.variable) {
+
+                Some(literal) => unwrapBoolLiteral((*literal).clone()),
+                None => panic!("Field does not exist!")    
+                }
+            }
+        _ => panic!("Boolean value was expected!")
+    }
+}
+
+fn unwrapBoolLiteral (literal: Literal) -> bool {
+    match literal {
+        Literal::Boolean(value) => value,
+        _ => panic!("Boolean value was expected!")
+    }
+}
+
+
+fn unwrapArithExpr (expression: Expr, node: &Node) -> f32 {
+    match expression {
         Expr::Literal(value) => unwrapArithLiteral(value),
-        Expr::Add(left, right) => unwrapArithExpr(Box::into_raw(left)) + unwrapArithExpr(Box::into_raw(right)),
-        Expr::Sub(left, right) => unwrapArithExpr(Box::into_raw(left)) - unwrapArithExpr(Box::into_raw(right)),
-        Expr::Mul(left, right) => unwrapArithExpr(Box::into_raw(left)) * unwrapArithExpr(Box::into_raw(right)),
-        Expr::Div(left, right) => unwrapArithExpr(Box::into_raw(left)) / unwrapArithExpr(Box::into_raw(right)),
-        Expr::Modulo(left, right) => unwrapArithExpr(Box::into_raw(left)) % unwrapArithExpr(Box::into_raw(right)),        
+        Expr::Add(left, right) => unwrapArithExpr(*left, node) + unwrapArithExpr(*right, node),
+        Expr::Sub(left, right) => unwrapArithExpr(*left, node) - unwrapArithExpr(*right, node),
+        Expr::Mul(left, right) => unwrapArithExpr(*left, node) * unwrapArithExpr(*right, node),
+        Expr::Div(left, right) => unwrapArithExpr(*left, node) / unwrapArithExpr(*right, node),
+        Expr::Modulo(left, right) => unwrapArithExpr(*left, node) % unwrapArithExpr(*right, node), 
+        Expr::Attribute(attribute) => {
+            match node.attribute_values.get(&attribute.variable) {
+
+                Some(literal) => unwrapArithLiteral((*literal).clone()),
+                None => panic!("Field does not exist!")    
+                }
+            }
+            ,       
         _ => panic!("Non Arithmetric value found!")
     }
 }
@@ -643,17 +703,25 @@ fn unwrapArithLiteral (literal: Literal) -> f32 {
     }
 }
 
+fn unwrapStringExpr(expression: Expr, node: &Node) -> String {
+    match expression {
+        Expr::Literal(value) => unwrapStringLiteral(value),
+        Expr::Attribute(attribute) => {
+            match node.attribute_values.get(&attribute.variable) {
+
+                Some(literal) => unwrapStringLiteral((*literal).clone()),
+                None => panic!("Field does not exist!")    
+                }
+            }
+        _ => panic!("Boolean value was expected!")
+    }
+
+}
+
 fn unwrapStringLiteral (literal: Literal) -> String {
     match literal {
         Literal::Str(value) => value,
         _ => panic!("String value was expected!")
-    }
-}
-
-fn unwrapBoolLiteral (literal: Literal) -> bool {
-    match literal {
-        Literal::Boolean(value) => value,
-        _ => panic!("Boolean value was expected!")
     }
 }
 
