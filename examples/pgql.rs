@@ -62,6 +62,7 @@ pub enum Expr {
     Not        (Box<Expr>),
 }
 
+
 #[derive(Debug)]
 pub struct Attribute { 
     name: String,
@@ -156,6 +157,160 @@ pub enum Literal {
   Float(f32),
   Boolean(bool),
   Integer(i32),
+}
+
+impl Literal {
+    fn add(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Float(value + ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn sub(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Float(value - ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn mul(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Float(value * ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn div(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Float(value / ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn modulo(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Float(value % ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn greater(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Boolean(value < ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn greaterEq(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Boolean(value <= ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn smaller(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Boolean(value > ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn smallerEq(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Float(value) => {
+                match *self {
+                    Literal::Float(ownvalue) => Literal::Boolean(value >= ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn and(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Boolean(value) => {
+                match *self {
+                    Literal::Boolean(ownvalue) => Literal::Boolean(value && ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn or(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Boolean(value) => {
+                match *self {
+                    Literal::Boolean(ownvalue) => Literal::Boolean(value || ownvalue),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }
+
+    fn not(&self) -> Literal {
+
+        match *self {
+            Literal::Boolean(ownvalue) => Literal::Boolean(!ownvalue),
+            _ => panic!("Mulitplication with non arithmetic value")
+        }
+    }
+
+    /*fn Like(&self, other: Literal) -> Literal {
+        match other {
+            Literal::Str(value) => {
+                match *self {
+                    Literal::Str(ownvalue) => Literal::Boolean((ownvalue.clone()).contains(value.clone())),
+                    _ => panic!("Mulitplication with non arithmetic value")
+                }
+            },
+             _ => panic!("Mulitplication with non arithmetic value") 
+        }
+    }*/
 }
 
 
@@ -461,9 +616,8 @@ impl Display for Graph
 
 fn main() { 
 
-    println!("{:?}", evaluate2());
-
-    /*let edge_filepath: String = std::env::args().nth(1).unwrap();
+    //println!("{:?}", evaluate2());
+    let edge_filepath: String = std::env::args().nth(1).unwrap();
 
     // define a new computational scope, in which to run BFS
     timely::execute_from_args(std::env::args().skip(1), move |computation| {
@@ -479,8 +633,8 @@ fn main() {
             // handle to push edges into the system
             let (edge_input, graph) = scope.new_input();
 
-            let probe = evaluate(&Collection::new(graph), &Collection::new(query)).probe().0;
-            
+            let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query)).probe();
+            output.inspect(|&(ref x,_)| println!("{:?}", x));
             (edge_input, query_input, probe)
         });
 
@@ -508,9 +662,6 @@ fn main() {
                         let source:Node = value.nodes[elem.source as usize -1].clone();
                         let target:Node = value.nodes[elem.target as usize -1].clone();
 
-                        //println!("{:?} -> \n {:?}\n",source,target); 
-                        
-
                         graph.send(((source.into(),target.into()),1));
                     }
                 }
@@ -526,8 +677,6 @@ fn main() {
                 }
                 _ => println!("{:?}", result)
             }
-
-
             println!("loaded; elapsed: {:?}", timer.elapsed());
         }
 
@@ -537,11 +686,12 @@ fn main() {
         // do the job
         computation.step_while(|| probe.lt(graph.time()));
 
+
         //if computation.index() == 0 {
           //  println!("stable; elapsed: {:?}", timer.elapsed());
         //}
 
-    }).unwrap();*/
+    }).unwrap();
 
 
 }
@@ -550,8 +700,12 @@ fn evaluate<G: Scope>(edges: &Collection<G, EdgeTest>, queries: &Collection<G, S
 where G::Timestamp: Lattice {
 
 
-    edges.filter(|x| {true})
 
+    //let test = edges.join(edges);
+
+    edges.filter(|x| {
+let &(ref source, ref target) = x;
+        checkTNode(source)})
     // Step 0: translate query into a dataflow
 
     // Step 1: evaluate query on the graph
@@ -588,16 +742,14 @@ fn evaluate2
     let query = Query{ 
         select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
                      Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})],
-        vvhere: vec![
-            Expr::Like(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()})),
-
-                    Box::new(Expr::Literal(Literal::Str("lice".into()))))
+        vvhere: vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})),
+                Box::new(Expr::Literal(Literal::Float(40.5))))
     ]};
 
 
     let mut map = HashMap::new();
     map.insert("name".into(), Literal::Str("Alice".into()));    
-    map.insert("age".into(), Literal::Integer(30));
+    map.insert("age".into(), Literal::Float(30.5));
     map.insert("salary".into(), Literal::Integer(20));
     let node = Node{id:0, label: vec!["Server".into()], attribute_values: map};
    
@@ -619,112 +771,48 @@ fn evaluate2
 
 }
 
+fn checkTNode (node: &TimelyNode) -> bool
+    {true
+}
 fn checkNode (node: &Node, constraints: Vec<Expr>) -> bool {
     let mut result = true;
     for constraint in constraints {
-        result = result && evaluateExpr(node, constraint);
+        let boolean = match evaluateExpr(constraint, node) {
+            Literal::Boolean(value) => value,
+            _ => panic !("Non Boolean value found!")
+        }; 
+        result = result && boolean;
     }
     (result)
 }
 
-fn evaluateExpr (node: &Node, constraint: Expr) -> bool {
+fn evaluateExpr (constraint: Expr, node: &Node) -> Literal {
     match constraint{
-        Expr::Equal(left, right) => unwrapExpr(*left, node) == unwrapExpr(*right, node),
-        Expr::NotEqual(left, right) => unwrapExpr(*left, node) != unwrapExpr(*right, node),
-        Expr::Smaller(left, right) => unwrapArithExpr(*left, node) < unwrapArithExpr(*right, node),
-        Expr::SmallerEq(left, right) => unwrapArithExpr(*left, node) <= unwrapArithExpr(*right, node),
-        Expr::Greater(left, right) => unwrapArithExpr(*left, node) > unwrapArithExpr(*right, node),
-        Expr::GreaterEq(left, right) => unwrapArithExpr(*left, node) >= unwrapArithExpr(*right, node),
-        Expr::Like(left, right) => (&*unwrapStringExpr(*left, node)).contains(&*unwrapStringExpr(*right, node)),
-        Expr::And(left, right) => unwrapBoolExpr(*left, node) && unwrapBoolExpr(*right, node),
-        Expr::Or(left, right) => unwrapBoolExpr(*left, node) || unwrapBoolExpr(*right, node),
-        Expr::Not(value) => !unwrapBoolExpr(*value, node),
-        Expr::Label(label) => node.label.contains(&label),
-        
+        Expr::Equal(left, right)         => Literal::Boolean(evaluateExpr(*left, node) == evaluateExpr(*right, node)),
+        Expr::NotEqual(left, right)      => Literal::Boolean(evaluateExpr(*left, node) != evaluateExpr(*right, node)),
+        Expr::Smaller(left, right)       => evaluateExpr(*left, node).smaller(evaluateExpr(*right, node)),
+        Expr::SmallerEq(left, right)     => evaluateExpr(*left, node).smallerEq(evaluateExpr(*right, node)),
+        Expr::Greater(left, right)       => evaluateExpr(*left, node).greater(evaluateExpr(*right, node)),
+        Expr::GreaterEq(left, right)     => evaluateExpr(*left, node).greaterEq(evaluateExpr(*right, node)),
+        //Expr::Like(left, right)        => (&*evaluateExpr(*left, node)).contains(&*evaluateExpr(*right, node)),
+        Expr::And(left, right)           => evaluateExpr(*left, node).and(evaluateExpr(*right, node)),
+        Expr::Or(left, right)            => evaluateExpr(*left, node).or(evaluateExpr(*right, node)),
+        Expr::Not(value)                 => evaluateExpr(*value, node).not(),
+        Expr::Label(label)               => Literal::Boolean(node.label.contains(&label)),
+        Expr::Add(left, right)           => evaluateExpr(*left, node).add(evaluateExpr(*right, node)),
+        Expr::Sub(left, right)           => evaluateExpr(*left, node).sub(evaluateExpr(*right, node)),
+        Expr::Mul(left, right)           => evaluateExpr(*left, node).mul(evaluateExpr(*right, node)),
+        Expr::Div(left, right)           => evaluateExpr(*left, node).div(evaluateExpr(*right, node)),
+        Expr::Modulo(left, right)        => evaluateExpr(*left, node).modulo(evaluateExpr(*right, node)),
+        Expr::Literal(value) => value,
+        Expr::Attribute(attribute)       => {
+            match node.attribute_values.get(&attribute.variable) {
+                Some(literal) => (*literal).clone(),
+                None => panic!("Field does not exist!") }
+            }
         _ => panic!("Non Boolean value found!")
     }
 }
-
-
-fn unwrapExpr(expression:  Expr, node: &Node) -> bool {
-    return true;
-}
-
-fn unwrapBoolExpr(expression: Expr, node: &Node) -> bool {
-    match expression {
-        Expr::Literal(value) => unwrapBoolLiteral(value),
-        Expr::And(left, right) => unwrapBoolExpr(*left, node) && unwrapBoolExpr(*right, node),
-        Expr::Or(left, right) => unwrapBoolExpr(*left, node) || unwrapBoolExpr(*right, node),
-        Expr::Not(value) => !unwrapBoolExpr(*value, node),
-        Expr::Attribute(attribute) => {
-            match node.attribute_values.get(&attribute.variable) {
-
-                Some(literal) => unwrapBoolLiteral((*literal).clone()),
-                None => panic!("Field does not exist!")    
-                }
-            }
-        _ => panic!("Boolean value was expected!")
-    }
-}
-
-fn unwrapBoolLiteral (literal: Literal) -> bool {
-    match literal {
-        Literal::Boolean(value) => value,
-        _ => panic!("Boolean value was expected!")
-    }
-}
-
-
-fn unwrapArithExpr (expression: Expr, node: &Node) -> f32 {
-    match expression {
-        Expr::Literal(value) => unwrapArithLiteral(value),
-        Expr::Add(left, right) => unwrapArithExpr(*left, node) + unwrapArithExpr(*right, node),
-        Expr::Sub(left, right) => unwrapArithExpr(*left, node) - unwrapArithExpr(*right, node),
-        Expr::Mul(left, right) => unwrapArithExpr(*left, node) * unwrapArithExpr(*right, node),
-        Expr::Div(left, right) => unwrapArithExpr(*left, node) / unwrapArithExpr(*right, node),
-        Expr::Modulo(left, right) => unwrapArithExpr(*left, node) % unwrapArithExpr(*right, node), 
-        Expr::Attribute(attribute) => {
-            match node.attribute_values.get(&attribute.variable) {
-
-                Some(literal) => unwrapArithLiteral((*literal).clone()),
-                None => panic!("Field does not exist!")    
-                }
-            }
-            ,       
-        _ => panic!("Non Arithmetric value found!")
-    }
-}
-
-fn unwrapArithLiteral (literal: Literal) -> f32 {
-    match literal {
-        Literal::Integer(value) => value as f32,
-        Literal::Float(value) => value,
-        _ => panic!("Arithmetric value was expected!")
-    }
-}
-
-fn unwrapStringExpr(expression: Expr, node: &Node) -> String {
-    match expression {
-        Expr::Literal(value) => unwrapStringLiteral(value),
-        Expr::Attribute(attribute) => {
-            match node.attribute_values.get(&attribute.variable) {
-
-                Some(literal) => unwrapStringLiteral((*literal).clone()),
-                None => panic!("Field does not exist!")    
-                }
-            }
-        _ => panic!("Boolean value was expected!")
-    }
-
-}
-
-fn unwrapStringLiteral (literal: Literal) -> String {
-    match literal {
-        Literal::Str(value) => value,
-        _ => panic!("String value was expected!")
-    }
-}
-
 
 
 
