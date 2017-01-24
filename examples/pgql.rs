@@ -1,3 +1,4 @@
+
 #[macro_use]
 extern crate nom;
 extern crate rand;
@@ -5,6 +6,7 @@ extern crate timely;
 extern crate differential_dataflow;
 #[macro_use]
 extern crate abomonation;
+
 
 use abomonation::{encode, decode, Abomonation};
 
@@ -99,6 +101,21 @@ impl From<Node> for TimelyNode {
     }
 }
 
+impl From<TimelyNode> for Node {
+    fn from(data: TimelyNode) -> Self {
+        let mut map = HashMap::new();
+        for pair in data.attribute_values {
+            let (key, value) = pair;
+            map.insert(key, value);
+        }
+        Node {
+            id: data.id,
+            label: data.label,
+            attribute_values: map,
+        }
+    }
+}
+
 /*impl PartialEq for TimelyNode {
     fn eq(&self, other: &TimelyNode) -> bool {
         self.id == other.id
@@ -126,7 +143,7 @@ macro_rules! try_option {
     })
 }
 
-type EdgeTest = (TimelyNode, TimelyNode);
+type TimelyEdge = (i32, i32);
 
 
 #[derive(Debug)]
@@ -387,13 +404,21 @@ pub enum Type {
 named!(literal<Literal>,
     alt_complete!(       
         float       => { |f| Literal::Float(f)             } |
-        integer     => { |i| Literal::Integer(i)           } | 
         boolean     => { |b| Literal::Boolean(b)           } |
         string      => { |s| Literal::Str(String::from(s)) } 
             
     )
 );
 
+named!(unsigned_int<i32>,
+    map_res!(
+        map_res!(
+            digit,
+            str::from_utf8
+        ),
+        FromStr::from_str
+    )
+);
 
 named!(unsigned_float<f32>, map_res!(
   map_res!(
@@ -473,27 +498,7 @@ named!(boolean<bool>,
 );
 
 
-named!(unsigned_int<i32>,
-    map_res!(
-        map_res!(
-            digit,
-            str::from_utf8
-        ),
-        FromStr::from_str
-    )
-);
-
-named!(integer<i32>, map!(
-  pair!(
-    opt!(alt!(tag!("+") | tag!("-"))),
-    unsigned_int
-  ),
-  |(sign, value): (Option<&[u8]>, i32)| {
-    sign.and_then(|s| if s[0] == ('-' as u8) { Some(-1i32) } else { None }).unwrap_or(1i32) * value
-  }
-));
-
-named!(line_end, alt!(tag!("\r\n") | tag!("\n")));
+named!(line_end, alt_complete!(tag!("\r\n") | tag!("\n")));
 
 
 //////////////////////////////
@@ -625,17 +630,19 @@ fn main() {
         let timer = Instant::now();
 
         // logic goes here
-        let (mut graph, mut query, probe) = computation.scoped(|scope| {
+        let (mut graph, mut query, mut vertices, probe) = computation.scoped(|scope| {
 
             // handle to push pgql queries
             let (query_input, query) = scope.new_input();
 
+            let (vertex_input, vertices) = scope.new_input();
+
             // handle to push edges into the system
             let (edge_input, graph) = scope.new_input();
 
-            let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query)).probe();
+            let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query), &Collection::new(vertices)).probe();
             output.inspect(|&(ref x,_)| println!("{:?}", x));
-            (edge_input, query_input, probe)
+            (edge_input, query_input, vertex_input, probe)
         });
 
         if computation.index() == 0 { // this block will be executed by worker/thread 0
@@ -657,12 +664,18 @@ fn main() {
             match result {
                 IResult::Done(_, value) => {
                     
+                    for elem in value.nodes{
+                        println!("{:?}", elem);
+                        vertices.send((elem.into(),1));
+                    }
+
                     for elem in value.edges{
                         // Assemble actual Edges
-                        let source:Node = value.nodes[elem.source as usize -1].clone();
-                        let target:Node = value.nodes[elem.target as usize -1].clone();
+                        //let source:Node = value.nodes[elem.source as usize -1].clone();
+                        //let target:Node = value.nodes[elem.target as usize -1].clone();
+                        //vertices.send((source.into(),1));
 
-                        graph.send(((source.into(),target.into()),1));
+                        graph.send(((elem.source,elem.target),1));
                     }
                 }
 
@@ -696,16 +709,29 @@ fn main() {
 
 }
 
-fn evaluate<G: Scope>(edges: &Collection<G, EdgeTest>, queries: &Collection<G, String>) -> Collection<G, EdgeTest>
+fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>, queries: &Collection<G, String>, vertices: &Collection<G, TimelyNode>) -> Collection<G, TimelyNode>
 where G::Timestamp: Lattice {
 
 
 
     //let test = edges.join(edges);
 
-    edges.filter(|x| {
-let &(ref source, ref target) = x;
-        checkTNode(source)})
+    //let &(ref source, ref target) = x;
+    let query = Query{ 
+        select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
+                     Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})],
+        vvhere: vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
+                Box::new(Expr::Literal(Literal::Float(40.5))))
+    ]};
+
+
+    /*vertices.filter(|x| {
+    let s = (*x).clone();
+    checkNode(&(s.into()), 
+        vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
+            Box::new(Expr::Literal(Literal::Float(10.5))))]
+        )})*/
+        vertices.clone()
     // Step 0: translate query into a dataflow
 
     // Step 1: evaluate query on the graph
@@ -717,12 +743,6 @@ fn evaluate2
 ()-> String
 //where G::Timestamp: Lattice 
 {
-
-    //FIXME: Use non-retarded way to access elements (if there is one, which seems unlikely.....)
-    /*let x = queries.map(|query| {
-        //println!("{:?}", query);
-        (1)}
-        );*/
 
     //let mut result;
     /*edges.map(|x| {
@@ -753,7 +773,7 @@ fn evaluate2
     map.insert("salary".into(), Literal::Integer(20));
     let node = Node{id:0, label: vec!["Server".into()], attribute_values: map};
    
-    if checkNode(&node, query.vvhere) {
+    /*if checkNode(&node, query.vvhere) {
         for attr in query.select {
             match attr {
                 Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.variable)),
@@ -761,7 +781,7 @@ fn evaluate2
             }
             
         }
-    }
+    }*/
     
     "End".into()
 
@@ -771,9 +791,6 @@ fn evaluate2
 
 }
 
-fn checkTNode (node: &TimelyNode) -> bool
-    {true
-}
 fn checkNode (node: &Node, constraints: Vec<Expr>) -> bool {
     let mut result = true;
     for constraint in constraints {
