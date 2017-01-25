@@ -6,6 +6,8 @@ extern crate timely;
 extern crate differential_dataflow;
 #[macro_use]
 extern crate abomonation;
+#[macro_use] extern crate abomonation_derive;
+
 
 
 use abomonation::{encode, decode, Abomonation};
@@ -84,7 +86,7 @@ pub struct Node{
     attribute_values: HashMap<String, Literal>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Abomonation)]
 pub struct TimelyNode{
     id: i32,
     label: Vec<String>,
@@ -132,9 +134,7 @@ impl Ord for TimelyNode{
     fn cmp(&self, other: &TimelyNode) -> Ordering {
         self.id.cmp(&other.id)
     }
-}
-
-impl Eq for TimelyNode {}*/
+}*/
 
 macro_rules! try_option {
     ($expr:expr) => (match $expr {
@@ -168,12 +168,11 @@ pub struct Graph{
     edges: Vec <Edge>,
 }
 
-#[derive(Debug,PartialEq, Clone)]
+#[derive(Debug,PartialEq, Clone, Abomonation)]
 pub enum Literal {
   Str(String),
   Float(f32),
   Boolean(bool),
-  Integer(i32),
 }
 
 impl Literal {
@@ -317,70 +316,18 @@ impl Literal {
         }
     }
 
-    /*fn Like(&self, other: Literal) -> Literal {
+    fn contains(&self, other: Literal) -> Literal {
         match other {
-            Literal::Str(value) => {
+            Literal::Str(ref value) => {
                 match *self {
-                    Literal::Str(ownvalue) => Literal::Boolean((ownvalue.clone()).contains(value.clone())),
+                    Literal::Str(ref ownvalue) => Literal::Boolean(ownvalue.contains(value)),
                     _ => panic!("Mulitplication with non arithmetic value")
                 }
             },
              _ => panic!("Mulitplication with non arithmetic value") 
         }
-    }*/
-}
-
-
-impl Abomonation for Literal {
-    #[inline] unsafe fn embalm(&mut self) {
-        if let &mut Literal::Integer(ref mut inner) = self {
-            inner.embalm();
-        }
-        if let &mut Literal::Str(ref mut inner) = self {
-            inner.embalm();
-        }
-        if let &mut Literal::Float(ref mut inner) = self {
-            inner.embalm();
-        }
-        if let &mut Literal::Boolean(ref mut inner) = self {
-            inner.embalm();
-        }
-    }
-
-    #[inline] unsafe fn entomb(&self, bytes: &mut Vec<u8>) {
-        if let &Literal::Integer(ref inner) = self {
-            inner.entomb(bytes);
-        }
-        if let &Literal::Str(ref inner) = self {
-            inner.entomb(bytes);
-        }
-        if let &Literal::Float(ref inner) = self {
-            inner.entomb(bytes);
-        }
-        if let &Literal::Boolean(ref inner) = self {
-            inner.entomb(bytes);
-        }
-    }
-
-    #[inline] unsafe fn exhume<'a, 'b>(&'a mut self, mut bytes: &'b mut[u8]) -> Option<&'b mut [u8]> {
-        if let &mut Literal::Integer(ref mut inner) = self {
-            let tmp = bytes; bytes = try_option!(inner.exhume(tmp));
-        }
-        if let &mut Literal::Str(ref mut inner) = self {
-            let tmp = bytes; bytes = try_option!(inner.exhume(tmp));
-        }
-        if let &mut Literal::Float(ref mut inner) = self {
-            let tmp = bytes; bytes = try_option!(inner.exhume(tmp));
-        }
-        if let &mut Literal::Boolean(ref mut inner) = self {
-            let tmp = bytes; bytes = try_option!(inner.exhume(tmp));
-        }
-        Some(bytes)
     }
 }
-
-unsafe_abomonate!(TimelyNode: id, label, attribute_values);
-
 
 #[derive(PartialEq, Eq, Hash,Debug)]
 pub enum Type {
@@ -398,15 +345,11 @@ pub enum Type {
 //////////////////////////////
 
 
-
-
-
 named!(literal<Literal>,
     alt_complete!(       
         float       => { |f| Literal::Float(f)             } |
         boolean     => { |b| Literal::Boolean(b)           } |
-        string      => { |s| Literal::Str(String::from(s)) } 
-            
+        string      => { |s| Literal::Str(String::from(s)) }             
     )
 );
 
@@ -439,14 +382,13 @@ named!(unsigned_float<f32>, map_res!(
             ),
             tag!("."),
             digit
-        )
-      )
+        ) | digit
+      ) 
     ),
     str::from_utf8
   ),
   FromStr::from_str
 ));
-
 
 
 named!(float<f32>, map!(
@@ -455,7 +397,7 @@ named!(float<f32>, map!(
     unsigned_float
   ),
   |(sign, value): (Option<&[u8]>, f32)| {
-    sign.and_then(|s| if s[0] == ('-' as u8) { Some(-1f32) } else { None }).unwrap_or(1f32) * value
+    sign.and_then(|s| if s[0] == ('-' as u8) { Some(-1.0) } else { None }).unwrap_or(1.0) * value
   }
 ));
 
@@ -640,7 +582,8 @@ fn main() {
             // handle to push edges into the system
             let (edge_input, graph) = scope.new_input();
 
-            let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query), &Collection::new(vertices)).probe();
+            let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query),
+             &Collection::new(vertices)).probe();
             output.inspect(|&(ref x,_)| println!("{:?}", x));
             (edge_input, query_input, vertex_input, probe)
         });
@@ -665,7 +608,6 @@ fn main() {
                 IResult::Done(_, value) => {
                     
                     for elem in value.nodes{
-                        println!("{:?}", elem);
                         vertices.send((elem.into(),1));
                     }
 
@@ -696,6 +638,7 @@ fn main() {
         // advance epoch
         query.advance_to(1);
         graph.advance_to(1);
+        vertices.advance_to(1);
         // do the job
         computation.step_while(|| probe.lt(graph.time()));
 
@@ -709,8 +652,8 @@ fn main() {
 
 }
 
-fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>, queries: &Collection<G, String>, vertices: &Collection<G, TimelyNode>) -> Collection<G, TimelyNode>
-where G::Timestamp: Lattice {
+fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>, queries: &Collection<G, String>,
+ vertices: &Collection<G, TimelyNode>) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
 
 
 
@@ -724,39 +667,38 @@ where G::Timestamp: Lattice {
                 Box::new(Expr::Literal(Literal::Float(40.5))))
     ]};
 
+    let roots =     vertices.filter(|x| {
+        let s = (*x).clone();
+        checkNode(&(s.into()), 
+            vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
+                Box::new(Expr::Literal(Literal::Float(5f32))))]
+            )}).map(|x| (x.id, x.id));
+    
+    /*let destinations = vertices.filter(|x| {
+        let s = (*x).clone();
+        checkNode(&(s.into()), 
+            vec![Expr::Greater(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
+                Box::new(Expr::Literal(Literal::Float(10.5))))]
+            )}).map(|x| (x.id, x.id));*/
 
-    /*vertices.filter(|x| {
-    let s = (*x).clone();
-    checkNode(&(s.into()), 
-        vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
-            Box::new(Expr::Literal(Literal::Float(10.5))))]
-        )})*/
-        vertices.clone()
-    // Step 0: translate query into a dataflow
 
-    // Step 1: evaluate query on the graph
+
+    
+    roots.iterate(|inner| {
+
+        let edges = edges.enter(&inner.scope());
+        let roots = roots.enter(&inner.scope());
+
+        inner.join_map(&edges, |_k,&l,&d| (d, l))
+             .concat(&roots)
+             .distinct()
+     })
+    
 
 }
 
-fn evaluate2
-//<G: Scope>(edges: &Collection<G, EdgeTest>, queries: &Collection<G, String>) 
-()-> String
-//where G::Timestamp: Lattice 
+fn evaluate2 ()-> String
 {
-
-    //let mut result;
-    /*edges.map(|x| {
-        let (a,b) = x;
-        let mut fulfills = true;
-        //for condition in query.vvhere {
-        
-        if fulfills {
-            result = a;
-        }
-        //edges = edges.filter(|x|)
-    }
-        (1)
-    );*/
 
 
     let query = Query{ 
@@ -770,10 +712,9 @@ fn evaluate2
     let mut map = HashMap::new();
     map.insert("name".into(), Literal::Str("Alice".into()));    
     map.insert("age".into(), Literal::Float(30.5));
-    map.insert("salary".into(), Literal::Integer(20));
     let node = Node{id:0, label: vec!["Server".into()], attribute_values: map};
    
-    /*if checkNode(&node, query.vvhere) {
+    if checkNode(&node, query.vvhere) {
         for attr in query.select {
             match attr {
                 Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.variable)),
@@ -781,13 +722,9 @@ fn evaluate2
             }
             
         }
-    }*/
+    }
     
     "End".into()
-
-    // Step 0: translate query into a dataflow
-
-    // Step 1: evaluate query on the graph
 
 }
 
@@ -811,7 +748,7 @@ fn evaluateExpr (constraint: Expr, node: &Node) -> Literal {
         Expr::SmallerEq(left, right)     => evaluateExpr(*left, node).smallerEq(evaluateExpr(*right, node)),
         Expr::Greater(left, right)       => evaluateExpr(*left, node).greater(evaluateExpr(*right, node)),
         Expr::GreaterEq(left, right)     => evaluateExpr(*left, node).greaterEq(evaluateExpr(*right, node)),
-        //Expr::Like(left, right)        => (&*evaluateExpr(*left, node)).contains(&*evaluateExpr(*right, node)),
+        Expr::Like(left, right)          => evaluateExpr(*left, node).contains(evaluateExpr(*right, node)),
         Expr::And(left, right)           => evaluateExpr(*left, node).and(evaluateExpr(*right, node)),
         Expr::Or(left, right)            => evaluateExpr(*left, node).or(evaluateExpr(*right, node)),
         Expr::Not(value)                 => evaluateExpr(*value, node).not(),
@@ -821,11 +758,11 @@ fn evaluateExpr (constraint: Expr, node: &Node) -> Literal {
         Expr::Mul(left, right)           => evaluateExpr(*left, node).mul(evaluateExpr(*right, node)),
         Expr::Div(left, right)           => evaluateExpr(*left, node).div(evaluateExpr(*right, node)),
         Expr::Modulo(left, right)        => evaluateExpr(*left, node).modulo(evaluateExpr(*right, node)),
-        Expr::Literal(value) => value,
+        Expr::Literal(value)             => value,
         Expr::Attribute(attribute)       => {
             match node.attribute_values.get(&attribute.variable) {
                 Some(literal) => (*literal).clone(),
-                None => panic!("Field does not exist!") }
+                None => panic!("Field {:?} does not exist!", &attribute.variable) }
             }
         _ => panic!("Non Boolean value found!")
     }
