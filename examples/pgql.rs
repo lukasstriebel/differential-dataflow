@@ -37,14 +37,58 @@ use std::cmp::Ordering;
 //       QUERYTYPES         //
 //                          //
 //////////////////////////////
+#[derive(Debug)]
+struct Plan {
+   operator: Op,
+   left: Option<Box<Plan> >,
+   right: Option<Box<Plan> >,
+   filter: Option<Vec<Expr> >,
+   join_left: Option<String>,
+   join_right: Option<String>,
+   map: Option<Attribute>,
+}
+#[derive(Debug,PartialEq)]
+enum Op {
+    Filter,
+    Map,
+    Join,
+}
+
+#[derive(Debug,PartialEq)]
+pub enum Constraint{
+    Expr(Expr),
+    PathPattern(Connection),
+}
+
+#[derive(Debug,PartialEq)]
+pub struct Connection {
+    source: Vertex,
+    target: Vertex,
+    edge: Edge2,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Edge2 {
+    name: String,
+    inverted: bool,
+    constraints: Vec<Expr>,
+}
+
+#[derive(Debug,PartialEq)]
+
+pub struct Vertex {
+    name: String,
+    anonymous: bool,
+    constraints: Vec<Expr>,
+}
 
 #[derive(Debug)]
 pub struct Query {
     select: Vec<Expr>,
-    vvhere: Vec<Expr>,
+    vvhere: Vec<Constraint>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expr {    
     Attribute  (Attribute),
     Literal    (Literal),
@@ -67,7 +111,7 @@ pub enum Expr {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Attribute { 
     name: String,
     variable: String,
@@ -79,7 +123,7 @@ pub struct Attribute {
 //                          //
 //////////////////////////////
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Node{
     id: i32,
     label: Vec<String>,
@@ -146,7 +190,7 @@ macro_rules! try_option {
 type TimelyEdge = (i32, i32);
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Edge{
     source: i32,
     target: i32,
@@ -329,13 +373,6 @@ impl Literal {
     }
 }
 
-#[derive(PartialEq, Eq, Hash,Debug)]
-pub enum Type {
-    Str,
-    Float,
-    Boolean,
-    Integer,
-}
 
 
 //////////////////////////////
@@ -652,34 +689,120 @@ fn main() {
 
 }
 
+fn transformAST (constraints: Vec<Constraint>) -> Plan {
+    Plan{
+        operator: Op::Join,
+        left: create_plan_from_constraint(&constraints[0]),
+        right: create_plan_from_constraint(&constraints[1]),
+        filter: None,
+        join_left: Some("id".into()),
+        join_right: Some("id".into()),
+        map: None
+    }
+}
+
+fn create_plan_from_constraint (constraint: &Constraint) -> Option<Box<Plan> > {
+
+    match constraint {
+        &Constraint::PathPattern(_) => None,
+        &Constraint::Expr(ref expr) => 
+            Some(
+                Box::new(
+                    Plan {
+                        operator: Op::Filter,
+                        left: None,
+                        right: None,
+                        filter: Some(vec![(*expr).clone()]),
+                        join_left: None,
+                        join_right: None,
+                        map: None
+                        }
+                    )
+                )
+    }
+    
+}
+
 fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>, queries: &Collection<G, String>,
  vertices: &Collection<G, TimelyNode>) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
 
+    let constraints = vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
 
+target: Vertex {name: "v".into(), anonymous: false, constraints: vec![
+]}
+,
+edge: Edge2 { name: "".into(), inverted: false, constraints: vec![] }}),Constraint::Expr(
+
+Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))), Constraint::Expr(
+
+Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(40.0)))))
+];
+    //let plan = transformAST(constraints);
+    let plan = boolean("true".as_bytes());
+    println!("{:?}", plan);
 
     //let test = edges.join(edges);
 
     //let &(ref source, ref target) = x;
-    let query = Query{ 
+    /*let query = Query{ 
         select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
                      Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})],
         vvhere: vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
                 Box::new(Expr::Literal(Literal::Float(40.5))))
-    ]};
+    ]};*/
+
+
+    //let mut connections;
+    //let mut vertex_constraints;
+    /*for constraint in query.vvhere{
+        match constraint {
+            Expr(expr) => vertex_constraints.push(expr),
+            Connection(connection) => connections.push(connection),
+            _ => painc!("Unknown constraint type.")
+        }
+
+        
+    }*/
+
+
 
     let roots =     vertices.filter(|x| {
         let s = (*x).clone();
         checkNode(&(s.into()), 
             vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
                 Box::new(Expr::Literal(Literal::Float(5f32))))]
-            )}).map(|x| (x.id, x.id));
+            )});
     
-    /*let destinations = vertices.filter(|x| {
+    let destinations = vertices.filter(|x| {
         let s = (*x).clone();
         checkNode(&(s.into()), 
             vec![Expr::Greater(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
                 Box::new(Expr::Literal(Literal::Float(10.5))))]
-            )}).map(|x| (x.id, x.id));*/
+            )}).map(|x| x.id);
+
+    edges.filter(|x| {
+        let &(ref source, ref target) = x;
+        true
+        //(roots.contains(source) && destinations.contains(target))
+    })
+}
+
+
+
+fn reach (){
+    /*let roots =     vertices.filter(|x| {
+        let s = (*x).clone();
+        checkNode(&(s.into()), 
+            vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
+                Box::new(Expr::Literal(Literal::Float(5f32))))]
+            )})//.map(|x| (x.id, x.id));
+    
+    let destinations = vertices.filter(|x| {
+        let s = (*x).clone();
+        checkNode(&(s.into()), 
+            vec![Expr::Greater(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
+                Box::new(Expr::Literal(Literal::Float(10.5))))]
+            )}).map(|x| (x.id, x.id));
 
 
 
@@ -692,15 +815,13 @@ fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>, queries: &Collection<G,
         inner.join_map(&edges, |_k,&l,&d| (d, l))
              .concat(&roots)
              .distinct()
-     })
-    
-
+     })*/
 }
 
 fn evaluate2 ()-> String
 {
 
-
+/*
     let query = Query{ 
         select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
                      Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})],
@@ -714,7 +835,7 @@ fn evaluate2 ()-> String
     map.insert("age".into(), Literal::Float(30.5));
     let node = Node{id:0, label: vec!["Server".into()], attribute_values: map};
    
-    if checkNode(&node, query.vvhere) {
+    if checkNode(&node, vvhere) {
         for attr in query.select {
             match attr {
                 Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.variable)),
@@ -723,10 +844,26 @@ fn evaluate2 ()-> String
             
         }
     }
-    
+    */
     "End".into()
 
 }
+
+
+/*fn create_plan_from_constraint (constraints: Constraint) -> Option<Plan> {
+    if constraints.len() == 0 {
+        None
+    }
+    else {
+        Some(Plan {operator: Op::Filter,
+   left: None,
+   right: None,
+   filter: None,
+   join_left: None,
+    join_right: None,
+     map: None})
+     }
+}*/
 
 fn checkNode (node: &Node, constraints: Vec<Expr>) -> bool {
     let mut result = true;
