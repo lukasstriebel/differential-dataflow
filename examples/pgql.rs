@@ -38,10 +38,10 @@ use std::cmp::Ordering;
 //                          //
 //////////////////////////////
 #[derive(Debug)]
-struct Plan {
+struct Plan <'a> {
    operator: Op,
-   left: Option<Box<Plan> >,
-   right: Option<Box<Plan> >,
+   left: Option<&'a Plan<'a> >,
+   right: Option<&'a Plan<'a> >,
    filter: Option<Vec<Expr> >,
    join_left: Option<String>,
    join_right: Option<String>,
@@ -59,6 +59,7 @@ pub enum Constraint{
     Expr(Expr),
     PathPattern(Connection),
 }
+
 
 #[derive(Debug,PartialEq)]
 pub struct Connection {
@@ -225,10 +226,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Float(value + ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("Addition with non arithmetic value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("Addition with non arithmetic value") 
         }
     }
 
@@ -237,10 +238,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Float(value - ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("Substraction with non arithmetic value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("Substraction with non arithmetic value") 
         }
     }
 
@@ -261,10 +262,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Float(value / ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("Division with non arithmetic value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("Division with non arithmetic value") 
         }
     }
 
@@ -273,10 +274,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Float(value % ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("Modulo with non arithmetic value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("Modulo with non arithmetic value") 
         }
     }
 
@@ -285,10 +286,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Boolean(value < ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("Greater with non arithmetic value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("Greater with non arithmetic value") 
         }
     }
 
@@ -297,10 +298,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Boolean(value <= ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("GreaterEq with non arithmetic value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("GreaterEq with non arithmetic value") 
         }
     }
 
@@ -309,10 +310,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Boolean(value > ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("Smaller with non arithmetic value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("Smaller with non arithmetic value") 
         }
     }
 
@@ -321,10 +322,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Boolean(value >= ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("SmallerEq with non arithmetic value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("SmallerEq with non arithmetic value") 
         }
     }
 
@@ -333,10 +334,10 @@ impl Literal {
             Literal::Boolean(value) => {
                 match *self {
                     Literal::Boolean(ownvalue) => Literal::Boolean(value && ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("And with non boolean value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("And with non boolean value") 
         }
     }
 
@@ -345,10 +346,10 @@ impl Literal {
             Literal::Boolean(value) => {
                 match *self {
                     Literal::Boolean(ownvalue) => Literal::Boolean(value || ownvalue),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("Or with non boolean value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("Or with non boolean value") 
         }
     }
 
@@ -356,7 +357,7 @@ impl Literal {
 
         match *self {
             Literal::Boolean(ownvalue) => Literal::Boolean(!ownvalue),
-            _ => panic!("Mulitplication with non arithmetic value")
+            _ => panic!("Not with non boolean value")
         }
     }
 
@@ -365,10 +366,10 @@ impl Literal {
             Literal::Str(ref value) => {
                 match *self {
                     Literal::Str(ref ownvalue) => Literal::Boolean(ownvalue.contains(value)),
-                    _ => panic!("Mulitplication with non arithmetic value")
+                    _ => panic!("Contains with non String value")
                 }
             },
-             _ => panic!("Mulitplication with non arithmetic value") 
+             _ => panic!("Contains with non String value") 
         }
     }
 }
@@ -619,8 +620,30 @@ fn main() {
             // handle to push edges into the system
             let (edge_input, graph) = scope.new_input();
 
+
+
+            /*let plan2 = transformAST(&vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
+
+target: Vertex {name: "v".into(), anonymous: false, constraints: vec![
+]}
+,
+edge: Edge2 { name: "".into(), inverted: false, constraints: vec![] }}),Constraint::Expr(
+
+Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))), Constraint::Expr(
+
+Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(40.0)))))
+], 0);
+            println!("{:?}", plan2); 
+            let plan = create_plan_from_constraint(&Constraint::Expr(
+
+Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))));
+*/            
+
+
+
             let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query),
-             &Collection::new(vertices)).probe();
+             &Collection::new(vertices)//, plan
+             ).probe();
             output.inspect(|&(ref x,_)| println!("{:?}", x));
             (edge_input, query_input, vertex_input, probe)
         });
@@ -688,27 +711,143 @@ fn main() {
 
 
 }
-
-fn transformAST (constraints: Vec<Constraint>) -> Plan {
-    Plan{
-        operator: Op::Join,
-        left: create_plan_from_constraint(&constraints[0]),
-        right: create_plan_from_constraint(&constraints[1]),
-        filter: None,
-        join_left: Some("id".into()),
-        join_right: Some("id".into()),
-        map: None
+/*
+fn exploreExpr(expr: Expr) ->Vec<String>{
+    let mut result = Vec::new();
+    match expr {
+        Expr::Attribute(attribute) => result.push(attribute.name),
+        Expr::Equal(left, right)         => (evaluateExpr(*left, node) == evaluateExpr(*right, node)),
+        Expr::NotEqual(left, right)      => Literal::Boolean(evaluateExpr(*left, node) != evaluateExpr(*right, node)),
+        Expr::Smaller(left, right)       => evaluateExpr(*left, node).smaller(evaluateExpr(*right, node)),
+        Expr::SmallerEq(left, right)     => evaluateExpr(*left, node).smallerEq(evaluateExpr(*right, node)),
+        Expr::Greater(left, right)       => evaluateExpr(*left, node).greater(evaluateExpr(*right, node)),
+        Expr::GreaterEq(left, right)     => evaluateExpr(*left, node).greaterEq(evaluateExpr(*right, node)),
+        Expr::Like(left, right)          => evaluateExpr(*left, node).contains(evaluateExpr(*right, node)),
+        Expr::And(left, right)           => evaluateExpr(*left, node).and(evaluateExpr(*right, node)),
+        Expr::Or(left, right)            => evaluateExpr(*left, node).or(evaluateExpr(*right, node)),
+        Expr::Not(value)                 => evaluateExpr(*value, node).not(),
+        Expr::Label(label)               => Literal::Boolean(node.label.contains(&label)),
+        Expr::Add(left, right)           => evaluateExpr(*left, node).add(evaluateExpr(*right, node)),
+        Expr::Sub(left, right)           => evaluateExpr(*left, node).sub(evaluateExpr(*right, node)),
+        Expr::Mul(left, right)           => evaluateExpr(*left, node).mul(evaluateExpr(*right, node)),
+        Expr::Div(left, right)           => evaluateExpr(*left, node).div(evaluateExpr(*right, node)),
+        Expr::Modulo(left, right)
+        _ => {}
     }
+    result
+}*/
+
+fn transformAST <'a> (constraints: &Vec<Constraint>) -> Option<&'a Plan> 
+{
+
+    //let mut table = HashMap::new();
+    let mut connections = Vec::new();
+    let mut selections = Vec::new();
+    for constraint in constraints{
+        match constraint {
+            &Constraint::PathPattern(ref pattern) => connections.push(pattern),
+            &Constraint::Expr(ref expr) => selections.push(expr),
+        }
+    }
+    for sel in selections {
+        //let (name, filter) = selection;
+        let filter = vec![sel];
+        let name: String = "test".into();
+        //let res = selection(&filter);
+        //table.insert(name, res);
+    }
+    //let mut table2;
+    for connection in connections {
+        let left = connection.source.name.clone();
+        let right = connection.target.name.clone();
+        //table2.push(join(*(table.get(left).unwrap()),*(table.get(right).unwrap())));
+    }
+    /*let test = vec![Expr::Literal(Literal::Float(40.0))];
+    let test2 = selection(test);
+    let test1 = vec![Expr::Literal(Literal::Float(40.0))];
+    let test3 = selection(test1);
+    let test5 = join(test2,test3);*/
+
+   /* match constraints[index] {
+        Constraint::PathPattern(ref pattern) => 
+        Some(
+            Plan {
+                operator: Op::Join,
+                left: transformAST(constraints, index + 1),
+                right: transformAST(constraints, index + 2),
+                filter: None,
+                join_left: Some("id".into()),
+                join_right: Some("id".into()),
+                map: None
+            }
+                
+            ),
+        Constraint::Expr(ref expr) =>
+        Some(
+            Plan {
+                operator: Op::Filter,
+                left: None,
+                right: None,
+                filter: Some(vec![(*expr).clone()]),
+                join_left: None,
+                join_right: None,
+                map: None
+                }
+            )
+                
+    }*/
+    
+    None
 }
 
-fn create_plan_from_constraint (constraint: &Constraint) -> Option<Box<Plan> > {
+
+
+
+
+
+fn selection <'a> ( constraints: Vec<Expr>) -> Option<Plan <'a> >{
+    Some(
+            Plan {
+                operator: Op::Filter,
+                left: None,
+                right: None,
+                filter: Some(constraints),
+                join_left: None,
+                join_right: None,
+                map: None
+                }
+            )
+}
+
+
+
+
+fn join <'a> ( left: Option<Plan <'a> >, right: Option<Plan<'a> > ) -> Option<Plan <'a> >{
+    Some(
+        Plan {
+            operator: Op::Join,
+            left: left.as_ref(),
+            right: right.as_ref(),
+            filter: None,
+            join_left: None,
+            join_right: None,
+            map: None
+            }
+        )
+}
+
+
+
+
+
+
+/*fn create_plan_from_constraint (constraint: &Constraint) -> Option<&Plan> {
 
     match constraint {
         &Constraint::PathPattern(_) => None,
         &Constraint::Expr(ref expr) => 
             Some(
-                Box::new(
-                    Plan {
+                    &Plan {
                         operator: Op::Filter,
                         left: None,
                         right: None,
@@ -717,16 +856,26 @@ fn create_plan_from_constraint (constraint: &Constraint) -> Option<Box<Plan> > {
                         join_right: None,
                         map: None
                         }
-                    )
+                    
                 )
     }
     
-}
+}*/
 
-fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>, queries: &Collection<G, String>,
- vertices: &Collection<G, TimelyNode>) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
+/*fn evaluate_plan<G: Scope> (plan: Plan, vertices: &Collection<G, TimelyNode>, edges: &Collection<G, TimelyEdge>)
+ ->  &Collection<G, TimelyNode> where G::Timestamp: Lattice {
+     let res = match plan.operator {
+        Op::Filter => vertices.filter(|x| {let s = (*x).clone();
+        checkNode(&(s.into()), plan.filter.unwrap().clone() )}),
+        Op::Map => vertices.filter(|x| true),
+        Op::Join => vertices.filter(|x| true),
+    };
+}*/
 
-    let constraints = vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
+fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G, String>, vertices: &Collection<G, TimelyNode>
+    //,    plan: Option<&Plan >
+    ) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
+    /*let constraints = vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
 
 target: Vertex {name: "v".into(), anonymous: false, constraints: vec![
 ]}
@@ -737,34 +886,12 @@ Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ag
 
 Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(40.0)))))
 ];
-    //let plan = transformAST(constraints);
-    let plan = boolean("true".as_bytes());
-    println!("{:?}", plan);
+    let plan = transformAST(constraints);*/
+    //println!("{:?}", plan);
 
     //let test = edges.join(edges);
 
     //let &(ref source, ref target) = x;
-    /*let query = Query{ 
-        select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
-                     Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})],
-        vvhere: vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
-                Box::new(Expr::Literal(Literal::Float(40.5))))
-    ]};*/
-
-
-    //let mut connections;
-    //let mut vertex_constraints;
-    /*for constraint in query.vvhere{
-        match constraint {
-            Expr(expr) => vertex_constraints.push(expr),
-            Connection(connection) => connections.push(connection),
-            _ => painc!("Unknown constraint type.")
-        }
-
-        
-    }*/
-
-
 
     let roots =     vertices.filter(|x| {
         let s = (*x).clone();
@@ -818,7 +945,7 @@ fn reach (){
      })*/
 }
 
-fn evaluate2 ()-> String
+fn evaluate2 ()
 {
 
 /*
@@ -845,25 +972,9 @@ fn evaluate2 ()-> String
         }
     }
     */
-    "End".into()
 
 }
 
-
-/*fn create_plan_from_constraint (constraints: Constraint) -> Option<Plan> {
-    if constraints.len() == 0 {
-        None
-    }
-    else {
-        Some(Plan {operator: Op::Filter,
-   left: None,
-   right: None,
-   filter: None,
-   join_left: None,
-    join_right: None,
-     map: None})
-     }
-}*/
 
 fn checkNode (node: &Node, constraints: Vec<Expr>) -> bool {
     let mut result = true;
