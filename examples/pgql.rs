@@ -37,17 +37,21 @@ use std::cmp::Ordering;
 //       QUERYTYPES         //
 //                          //
 //////////////////////////////
-#[derive(Debug)]
-struct Plan <'a> {
+#[derive(Debug, Clone)]
+struct Plan {
    operator: Op,
-   left: Option<&'a Plan<'a> >,
-   right: Option<&'a Plan<'a> >,
+
+   left: Option<Box<Plan> >,
+   right: Option<Box<Plan> >,
+
+
    filter: Option<Vec<Expr> >,
    join_left: Option<String>,
    join_right: Option<String>,
+   //elation_names: Vec<String>,
    map: Option<Attribute>,
 }
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone)]
 enum Op {
     Filter,
     Map,
@@ -622,7 +626,7 @@ fn main() {
 
 
 
-            /*let plan2 = transformAST(&vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
+            let plan = transformAST(&vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
 
 target: Vertex {name: "v".into(), anonymous: false, constraints: vec![
 ]}
@@ -632,18 +636,19 @@ edge: Edge2 { name: "".into(), inverted: false, constraints: vec![] }}),Constrai
 Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))), Constraint::Expr(
 
 Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(40.0)))))
-], 0);
-            println!("{:?}", plan2); 
-            let plan = create_plan_from_constraint(&Constraint::Expr(
+]);
+            println!("{:?}", plan); 
+            
 
-Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))));
-*/            
+/*let plan2 = exploreExpr(
+    Expr::Equal(Box::new(
+        Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0)))));
+println!("{:?}", plan2);         */    
 
 
 
             let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query),
-             &Collection::new(vertices)//, plan
-             ).probe();
+             &Collection::new(vertices), plan).probe();
             output.inspect(|&(ref x,_)| println!("{:?}", x));
             (edge_input, query_input, vertex_input, probe)
         });
@@ -672,11 +677,6 @@ Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ag
                     }
 
                     for elem in value.edges{
-                        // Assemble actual Edges
-                        //let source:Node = value.nodes[elem.source as usize -1].clone();
-                        //let target:Node = value.nodes[elem.target as usize -1].clone();
-                        //vertices.send((source.into(),1));
-
                         graph.send(((elem.source,elem.target),1));
                     }
                 }
@@ -711,201 +711,129 @@ Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ag
 
 
 }
-/*
-fn exploreExpr(expr: Expr) ->Vec<String>{
-    let mut result = Vec::new();
+
+fn exploreExpr(expr: Expr) -> String {
+    let mut result:String = "".into();
     match expr {
-        Expr::Attribute(attribute) => result.push(attribute.name),
-        Expr::Equal(left, right)         => (evaluateExpr(*left, node) == evaluateExpr(*right, node)),
-        Expr::NotEqual(left, right)      => Literal::Boolean(evaluateExpr(*left, node) != evaluateExpr(*right, node)),
-        Expr::Smaller(left, right)       => evaluateExpr(*left, node).smaller(evaluateExpr(*right, node)),
-        Expr::SmallerEq(left, right)     => evaluateExpr(*left, node).smallerEq(evaluateExpr(*right, node)),
-        Expr::Greater(left, right)       => evaluateExpr(*left, node).greater(evaluateExpr(*right, node)),
-        Expr::GreaterEq(left, right)     => evaluateExpr(*left, node).greaterEq(evaluateExpr(*right, node)),
-        Expr::Like(left, right)          => evaluateExpr(*left, node).contains(evaluateExpr(*right, node)),
-        Expr::And(left, right)           => evaluateExpr(*left, node).and(evaluateExpr(*right, node)),
-        Expr::Or(left, right)            => evaluateExpr(*left, node).or(evaluateExpr(*right, node)),
-        Expr::Not(value)                 => evaluateExpr(*value, node).not(),
-        Expr::Label(label)               => Literal::Boolean(node.label.contains(&label)),
-        Expr::Add(left, right)           => evaluateExpr(*left, node).add(evaluateExpr(*right, node)),
-        Expr::Sub(left, right)           => evaluateExpr(*left, node).sub(evaluateExpr(*right, node)),
-        Expr::Mul(left, right)           => evaluateExpr(*left, node).mul(evaluateExpr(*right, node)),
-        Expr::Div(left, right)           => evaluateExpr(*left, node).div(evaluateExpr(*right, node)),
-        Expr::Modulo(left, right)
+        Expr::Attribute(attribute)       => result.push_str(&attribute.name),
+        Expr::Equal(left, right)         => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},        
+        Expr::NotEqual(left, right)      => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Smaller(left, right)       => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::SmallerEq(left, right)     => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Greater(left, right)       => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::GreaterEq(left, right)     => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Like(left, right)          => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::And(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Or(left, right)            => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Not(value)                 => result.push_str(&exploreExpr(*value)),
+        Expr::Add(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Sub(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Mul(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Div(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Modulo(left, right)        => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
         _ => {}
     }
     result
-}*/
+}
 
-fn transformAST <'a> (constraints: &Vec<Constraint>) -> Option<&'a Plan> 
+fn transformAST (constraints: &Vec<Constraint>) -> Plan
 {
 
-    //let mut table = HashMap::new();
+    let mut selections: HashMap<String, Vec<Expr> > = HashMap::new();
+    let mut plans = HashMap::new();
     let mut connections = Vec::new();
-    let mut selections = Vec::new();
+
     for constraint in constraints{
         match constraint {
             &Constraint::PathPattern(ref pattern) => connections.push(pattern),
-            &Constraint::Expr(ref expr) => selections.push(expr),
+            &Constraint::Expr(ref expr) => {
+                let name = exploreExpr((*expr).clone());
+                let mut new = false;
+                match selections.get_mut(&name) {
+                    Some(vec) => vec.push((*expr).clone()),
+                    None => new = true,
+                }
+                if new {
+                    selections.insert(name, vec![(*expr).clone()]);
+                }
+            },
         }
     }
-    for sel in selections {
-        //let (name, filter) = selection;
-        let filter = vec![sel];
-        let name: String = "test".into();
-        //let res = selection(&filter);
-        //table.insert(name, res);
-    }
-    //let mut table2;
-    for connection in connections {
-        let left = connection.source.name.clone();
-        let right = connection.target.name.clone();
-        //table2.push(join(*(table.get(left).unwrap()),*(table.get(right).unwrap())));
-    }
-    /*let test = vec![Expr::Literal(Literal::Float(40.0))];
-    let test2 = selection(test);
-    let test1 = vec![Expr::Literal(Literal::Float(40.0))];
-    let test3 = selection(test1);
-    let test5 = join(test2,test3);*/
 
-   /* match constraints[index] {
-        Constraint::PathPattern(ref pattern) => 
-        Some(
+    for selection in selections.iter() {
+        let (name, filter) = selection;
+        let plan = create_selection((*filter).clone());
+        plans.insert(name, plan);
+    }
+
+    let mut result = None;
+
+    for connection in connections {
+        //let name = vec![left, right];
+        let left: Option<Box<Plan> > = match plans.get(&connection.source.name){
+            Some(plan) => (*plan).clone(),
+            None => None,
+        };
+
+        let right: Option<Box<Plan> > = match plans.get(&connection.source.name){
+            Some(plan) => (*plan).clone(),
+            None => None,
+        };
+        
+        result = create_join(left, right);
+    }
+
+    (*(result.unwrap()))            
+}
+
+
+fn create_selection (constraints: Vec<Expr>) -> Option<Box<Plan> >{
+    Some(
+            Box::new(
+                Plan {
+                    operator: Op::Filter,
+                    left: None,
+                    right: None,
+                    filter: Some(constraints),
+                    join_left: None,
+                    join_right: None,
+                    map: None
+                    }
+                )
+            )
+}
+
+
+fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option<Box<Plan> >{
+    Some(
+        Box::new(
             Plan {
                 operator: Op::Join,
-                left: transformAST(constraints, index + 1),
-                right: transformAST(constraints, index + 2),
+                left: left,
+                right: right,
                 filter: None,
-                join_left: Some("id".into()),
-                join_right: Some("id".into()),
-                map: None
-            }
-                
-            ),
-        Constraint::Expr(ref expr) =>
-        Some(
-            Plan {
-                operator: Op::Filter,
-                left: None,
-                right: None,
-                filter: Some(vec![(*expr).clone()]),
                 join_left: None,
                 join_right: None,
                 map: None
                 }
             )
-                
-    }*/
-    
-    None
-}
-
-
-
-
-
-
-fn selection <'a> ( constraints: Vec<Expr>) -> Option<Plan <'a> >{
-    Some(
-            Plan {
-                operator: Op::Filter,
-                left: None,
-                right: None,
-                filter: Some(constraints),
-                join_left: None,
-                join_right: None,
-                map: None
-                }
-            )
-}
-
-
-
-
-fn join <'a> ( left: Option<Plan <'a> >, right: Option<Plan<'a> > ) -> Option<Plan <'a> >{
-    Some(
-        Plan {
-            operator: Op::Join,
-            left: left.as_ref(),
-            right: right.as_ref(),
-            filter: None,
-            join_left: None,
-            join_right: None,
-            map: None
-            }
         )
 }
 
 
+fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G, String>, vertices: &Collection<G, TimelyNode>,
+    plan: Plan) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
 
-
-
-
-/*fn create_plan_from_constraint (constraint: &Constraint) -> Option<&Plan> {
-
-    match constraint {
-        &Constraint::PathPattern(_) => None,
-        &Constraint::Expr(ref expr) => 
-            Some(
-                    &Plan {
-                        operator: Op::Filter,
-                        left: None,
-                        right: None,
-                        filter: Some(vec![(*expr).clone()]),
-                        join_left: None,
-                        join_right: None,
-                        map: None
-                        }
-                    
-                )
-    }
-    
-}*/
-
-/*fn evaluate_plan<G: Scope> (plan: Plan, vertices: &Collection<G, TimelyNode>, edges: &Collection<G, TimelyEdge>)
- ->  &Collection<G, TimelyNode> where G::Timestamp: Lattice {
-     let res = match plan.operator {
-        Op::Filter => vertices.filter(|x| {let s = (*x).clone();
-        checkNode(&(s.into()), plan.filter.unwrap().clone() )}),
-        Op::Map => vertices.filter(|x| true),
-        Op::Join => vertices.filter(|x| true),
-    };
-}*/
-
-fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G, String>, vertices: &Collection<G, TimelyNode>
-    //,    plan: Option<&Plan >
-    ) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
-    /*let constraints = vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
-
-target: Vertex {name: "v".into(), anonymous: false, constraints: vec![
-]}
-,
-edge: Edge2 { name: "".into(), inverted: false, constraints: vec![] }}),Constraint::Expr(
-
-Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))), Constraint::Expr(
-
-Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(40.0)))))
-];
-    let plan = transformAST(constraints);*/
-    //println!("{:?}", plan);
-
-    //let test = edges.join(edges);
+    /*let mut result;
+    match plan.operator {
+        Op::Filter => {result =  vertices.filter(|x| {
+                                let s = (*x).clone();
+                                check_node(&(s.into()), plan.filter.unwrap() )})},
+        Op::Join => {},
+        Op::Map => {},
+    }*/
 
     //let &(ref source, ref target) = x;
-
-    let roots =     vertices.filter(|x| {
-        let s = (*x).clone();
-        checkNode(&(s.into()), 
-            vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
-                Box::new(Expr::Literal(Literal::Float(5f32))))]
-            )});
-    
-    let destinations = vertices.filter(|x| {
-        let s = (*x).clone();
-        checkNode(&(s.into()), 
-            vec![Expr::Greater(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
-                Box::new(Expr::Literal(Literal::Float(10.5))))]
-            )}).map(|x| x.id);
 
     edges.filter(|x| {
         let &(ref source, ref target) = x;
@@ -931,9 +859,6 @@ fn reach (){
                 Box::new(Expr::Literal(Literal::Float(10.5))))]
             )}).map(|x| (x.id, x.id));
 
-
-
-    
     roots.iterate(|inner| {
 
         let edges = edges.enter(&inner.scope());
@@ -947,15 +872,6 @@ fn reach (){
 
 fn evaluate2 ()
 {
-
-/*
-    let query = Query{ 
-        select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
-                     Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})],
-        vvhere: vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})),
-                Box::new(Expr::Literal(Literal::Float(40.5))))
-    ]};
-
 
     let mut map = HashMap::new();
     map.insert("name".into(), Literal::Str("Alice".into()));    
@@ -976,7 +892,7 @@ fn evaluate2 ()
 }
 
 
-fn checkNode (node: &Node, constraints: Vec<Expr>) -> bool {
+fn check_node (node: &Node, constraints: Vec<Expr>) -> bool {
     let mut result = true;
     for constraint in constraints {
         let boolean = match evaluateExpr(constraint, node) {
@@ -1012,7 +928,6 @@ fn evaluateExpr (constraint: Expr, node: &Node) -> Literal {
                 Some(literal) => (*literal).clone(),
                 None => panic!("Field {:?} does not exist!", &attribute.variable) }
             }
-        _ => panic!("Non Boolean value found!")
     }
 }
 
