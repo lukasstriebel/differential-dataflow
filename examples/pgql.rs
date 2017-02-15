@@ -624,22 +624,39 @@ fn main() {
             // handle to push edges into the system
             let (edge_input, graph) = scope.new_input();
 
+/*
 
-
-            let plan = transformAST(&vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
+            let plan = transformAST(
+&vec![Constraint::PathPattern(
+Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
+target: Vertex {name: "v".into(), anonymous: false, constraints:vec![]},
+edge: Edge2 { name: "".into(), inverted: false, constraints: vec![] }}),
+Constraint::Expr(
+Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })),
+ Box::new(Expr::Literal(Literal::Float(30.0))))),
+Constraint::Expr(
+Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })),
+ Box::new(Expr::Literal(Literal::Float(10.0))))),
+Constraint::Expr(
+Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })),
+ Box::new(Expr::Literal(Literal::Float(60.0))))),
+Constraint::Expr(
+Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })),
+ Box::new(Expr::Literal(Literal::Float(40.0)))))
+]);
+            println!("{:?}", plan); */
+            
+let cons = &vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
 
 target: Vertex {name: "v".into(), anonymous: false, constraints: vec![
 ]}
 ,
 edge: Edge2 { name: "".into(), inverted: false, constraints: vec![] }}),Constraint::Expr(
 
-Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))), Constraint::Expr(
+Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))), Constraint::Expr(
 
-Expr::Equal(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(40.0)))))
-]);
-            println!("{:?}", plan); 
-            
-
+Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(10.0)))))
+];
 /*let plan2 = exploreExpr(
     Expr::Equal(Box::new(
         Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0)))));
@@ -648,7 +665,7 @@ println!("{:?}", plan2);         */
 
 
             let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query),
-             &Collection::new(vertices), plan).probe();
+             &Collection::new(vertices), cons).probe();
             output.inspect(|&(ref x,_)| println!("{:?}", x));
             (edge_input, query_input, vertex_input, probe)
         });
@@ -775,7 +792,7 @@ fn transformAST (constraints: &Vec<Constraint>) -> Plan
             None => None,
         };
 
-        let right: Option<Box<Plan> > = match plans.get(&connection.source.name){
+        let right: Option<Box<Plan> > = match plans.get(&connection.target.name){
             Some(plan) => (*plan).clone(),
             None => None,
         };
@@ -822,7 +839,56 @@ fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option
 
 
 fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G, String>, vertices: &Collection<G, TimelyNode>,
-    plan: Plan) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
+    constraints: &Vec<Constraint>) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
+
+
+    let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
+    //let mut plans = HashMap::new();
+    let mut connections = Vec::new();
+
+    for constraint in constraints{
+        match constraint {
+            &Constraint::PathPattern(ref pattern) => connections.push(pattern),
+            &Constraint::Expr(ref expr) => {
+                let name = exploreExpr((*expr).clone());
+                let mut new = false;
+                match selections.get_mut(&name) {
+                    Some(vec) => vec.push((*expr).clone()),
+                    None => new = true,
+                }
+                if new {
+                    selections.insert(name, vec![(*expr).clone()]);
+                }
+            },
+        }
+    }
+
+    for selection in selections.iter() {
+        let (name, filter) = selection;
+        let myfilter= (*filter).clone();
+        /*let plan = vertices.filter(move |x| {
+            let s = (*x).clone();
+            check_node(&(s.into()),  filter         )
+        });
+        plans.insert(name, plan);*/
+    }
+/*
+    let mut result = None;
+
+    for connection in connections {
+        //let name = vec![left, right];
+        let left: Option<Box<Plan> > = match plans.get(&connection.source.name){
+            Some(plan) => (*plan).clone(),
+            None => None,
+        };
+
+        let right: Option<Box<Plan> > = match plans.get(&connection.target.name){
+            Some(plan) => (*plan).clone(),
+            None => None,
+        };
+        
+        result = create_join(left, right);
+    }*/
 
     /*let mut result;
     match plan.operator {
@@ -834,6 +900,15 @@ fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G
     }*/
 
     //let &(ref source, ref target) = x;
+
+    /*vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
+                     Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})],
+
+    for attr in query.select {
+            match attr {
+                Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.variable)),
+                _ => println!("failure")
+            }*/
 
     edges.filter(|x| {
         let &(ref source, ref target) = x;
@@ -870,32 +945,11 @@ fn reach (){
      })*/
 }
 
-fn evaluate2 ()
-{
 
-    let mut map = HashMap::new();
-    map.insert("name".into(), Literal::Str("Alice".into()));    
-    map.insert("age".into(), Literal::Float(30.5));
-    let node = Node{id:0, label: vec!["Server".into()], attribute_values: map};
-   
-    if checkNode(&node, vvhere) {
-        for attr in query.select {
-            match attr {
-                Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.variable)),
-                _ => println!("failure")
-            }
-            
-        }
-    }
-    */
-
-}
-
-
-fn check_node (node: &Node, constraints: Vec<Expr>) -> bool {
+fn check_node (node: &Node, constraints: &Vec<Expr>) -> bool {
     let mut result = true;
     for constraint in constraints {
-        let boolean = match evaluateExpr(constraint, node) {
+        let boolean = match evaluate_expr((*constraint).clone(), node) {
             Literal::Boolean(value) => value,
             _ => panic !("Non Boolean value found!")
         }; 
@@ -904,24 +958,24 @@ fn check_node (node: &Node, constraints: Vec<Expr>) -> bool {
     (result)
 }
 
-fn evaluateExpr (constraint: Expr, node: &Node) -> Literal {
+fn evaluate_expr (constraint: Expr, node: &Node) -> Literal {
     match constraint{
-        Expr::Equal(left, right)         => Literal::Boolean(evaluateExpr(*left, node) == evaluateExpr(*right, node)),
-        Expr::NotEqual(left, right)      => Literal::Boolean(evaluateExpr(*left, node) != evaluateExpr(*right, node)),
-        Expr::Smaller(left, right)       => evaluateExpr(*left, node).smaller(evaluateExpr(*right, node)),
-        Expr::SmallerEq(left, right)     => evaluateExpr(*left, node).smallerEq(evaluateExpr(*right, node)),
-        Expr::Greater(left, right)       => evaluateExpr(*left, node).greater(evaluateExpr(*right, node)),
-        Expr::GreaterEq(left, right)     => evaluateExpr(*left, node).greaterEq(evaluateExpr(*right, node)),
-        Expr::Like(left, right)          => evaluateExpr(*left, node).contains(evaluateExpr(*right, node)),
-        Expr::And(left, right)           => evaluateExpr(*left, node).and(evaluateExpr(*right, node)),
-        Expr::Or(left, right)            => evaluateExpr(*left, node).or(evaluateExpr(*right, node)),
-        Expr::Not(value)                 => evaluateExpr(*value, node).not(),
+        Expr::Equal(left, right)         => Literal::Boolean(evaluate_expr(*left, node) == evaluate_expr(*right, node)),
+        Expr::NotEqual(left, right)      => Literal::Boolean(evaluate_expr(*left, node) != evaluate_expr(*right, node)),
+        Expr::Smaller(left, right)       => evaluate_expr(*left, node).smaller(evaluate_expr(*right, node)),
+        Expr::SmallerEq(left, right)     => evaluate_expr(*left, node).smallerEq(evaluate_expr(*right, node)),
+        Expr::Greater(left, right)       => evaluate_expr(*left, node).greater(evaluate_expr(*right, node)),
+        Expr::GreaterEq(left, right)     => evaluate_expr(*left, node).greaterEq(evaluate_expr(*right, node)),
+        Expr::Like(left, right)          => evaluate_expr(*left, node).contains(evaluate_expr(*right, node)),
+        Expr::And(left, right)           => evaluate_expr(*left, node).and(evaluate_expr(*right, node)),
+        Expr::Or(left, right)            => evaluate_expr(*left, node).or(evaluate_expr(*right, node)),
+        Expr::Not(value)                 => evaluate_expr(*value, node).not(),
         Expr::Label(label)               => Literal::Boolean(node.label.contains(&label)),
-        Expr::Add(left, right)           => evaluateExpr(*left, node).add(evaluateExpr(*right, node)),
-        Expr::Sub(left, right)           => evaluateExpr(*left, node).sub(evaluateExpr(*right, node)),
-        Expr::Mul(left, right)           => evaluateExpr(*left, node).mul(evaluateExpr(*right, node)),
-        Expr::Div(left, right)           => evaluateExpr(*left, node).div(evaluateExpr(*right, node)),
-        Expr::Modulo(left, right)        => evaluateExpr(*left, node).modulo(evaluateExpr(*right, node)),
+        Expr::Add(left, right)           => evaluate_expr(*left, node).add(evaluate_expr(*right, node)),
+        Expr::Sub(left, right)           => evaluate_expr(*left, node).sub(evaluate_expr(*right, node)),
+        Expr::Mul(left, right)           => evaluate_expr(*left, node).mul(evaluate_expr(*right, node)),
+        Expr::Div(left, right)           => evaluate_expr(*left, node).div(evaluate_expr(*right, node)),
+        Expr::Modulo(left, right)        => evaluate_expr(*left, node).modulo(evaluate_expr(*right, node)),
         Expr::Literal(value)             => value,
         Expr::Attribute(attribute)       => {
             match node.attribute_values.get(&attribute.variable) {
