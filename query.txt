@@ -1,0 +1,1 @@
+SELECT v.name WHERE v -> u, v.ram < 5, u.ram > 10

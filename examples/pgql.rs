@@ -71,11 +71,11 @@ pub enum Constraint{
 pub struct Connection {
     source: Vertex,
     target: Vertex,
-    edge: Edge2,
+    edge: Edge,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct Edge2 {
+pub struct Edge {
     name: String,
     inverted: bool,
     constraints: Vec<Expr>,
@@ -138,15 +138,15 @@ pub struct Node{
 }
 
 #[derive(Debug, Clone, Abomonation)]
-pub struct TimelyNode{
+pub struct DifferentialVertex{
     id: i32,
     label: Vec<String>,
     attribute_values: Vec<(String, Literal)>,
 }
 
-impl From<Node> for TimelyNode {
+impl From<Node> for DifferentialVertex {
     fn from(data: Node) -> Self {
-        TimelyNode {
+        DifferentialVertex {
             id: data.id,
             label: data.label,
             attribute_values: data.attribute_values.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
@@ -154,8 +154,8 @@ impl From<Node> for TimelyNode {
     }
 }
 
-impl From<TimelyNode> for Node {
-    fn from(data: TimelyNode) -> Self {
+impl From<DifferentialVertex> for Node {
+    fn from(data: DifferentialVertex) -> Self {
         let mut map = HashMap::new();
         for pair in data.attribute_values {
             let (key, value) = pair;
@@ -170,29 +170,29 @@ impl From<TimelyNode> for Node {
 }
 
 
-impl PartialEq for TimelyNode {
-    fn eq(&self, other: &TimelyNode) -> bool {
+impl PartialEq for DifferentialVertex {
+    fn eq(&self, other: &DifferentialVertex) -> bool {
         self.id == other.id
     }
 }
 
-impl Hash for TimelyNode {
+impl Hash for DifferentialVertex {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.id.hash(state);
     }
 }
 
-impl Eq for TimelyNode {
+impl Eq for DifferentialVertex {
 }
 
-impl PartialOrd for TimelyNode {
-    fn partial_cmp(&self, other: &TimelyNode) -> Option<Ordering> {
+impl PartialOrd for DifferentialVertex {
+    fn partial_cmp(&self, other: &DifferentialVertex) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for TimelyNode{
-    fn cmp(&self, other: &TimelyNode) -> Ordering {
+impl Ord for DifferentialVertex{
+    fn cmp(&self, other: &DifferentialVertex) -> Ordering {
         self.id.cmp(&other.id)
     }
 }
@@ -204,11 +204,11 @@ macro_rules! try_option {
     })
 }
 
-type TimelyEdge = (i32, i32);
+type DifferentialEdge = (i32, i32);
 
 
 #[derive(Debug, PartialEq)]
-pub struct Edge{
+pub struct GraphEdge{
     source: i32,
     target: i32,
     label: String,    
@@ -226,7 +226,7 @@ pub struct DiffEdge{
 #[derive(Debug)]
 pub struct Graph{
     nodes: Vec <Node>,
-    edges: Vec <Edge>,
+    edges: Vec <GraphEdge>,
 }
 
 #[derive(Debug,PartialEq, Clone, Abomonation)]
@@ -550,7 +550,7 @@ named!(labels<Vec <String> >,
     )
 );
 
-named!(edge<Edge>,
+named!(edge<GraphEdge>,
     chain!(
         source: unsigned_int ~
         space ~
@@ -566,7 +566,7 @@ named!(edge<Edge>,
                 let (name, value) = elem;
                 map.insert(String::from(name), value);
             }
-            Edge {source: source, target: target, label:String::from(label), attribute_values: map }
+            GraphEdge {source: source, target: target, label:String::from(label), attribute_values: map }
         }
     )
 
@@ -618,11 +618,12 @@ impl Display for Graph
 
 fn main() { 
 
-    //println!("{:?}", evaluate2());
-    let edge_filepath: String = std::env::args().nth(1).unwrap();
+    let graph_filepath: String = std::env::args().nth(1).unwrap();
+
+    let query_filepath: String = std::env::args().nth(2).unwrap();
 
     // define a new computational scope, in which to run BFS
-    timely::execute_from_args(std::env::args().skip(1), move |computation| {
+    timely::execute_from_args(std::env::args().skip(2), move |computation| {
 
         let timer = Instant::now();
 
@@ -637,65 +638,34 @@ fn main() {
             // handle to push edges into the system
             let (edge_input, graph) = scope.new_input();
 
-/*
-
-            let plan = transformAST(
-&vec![Constraint::PathPattern(
-Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
-target: Vertex {name: "v".into(), anonymous: false, constraints:vec![]},
-edge: Edge2 { name: "".into(), inverted: false, constraints: vec![] }}),
-Constraint::Expr(
-Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })),
- Box::new(Expr::Literal(Literal::Float(30.0))))),
-Constraint::Expr(
-Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })),
- Box::new(Expr::Literal(Literal::Float(10.0))))),
-Constraint::Expr(
-Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })),
- Box::new(Expr::Literal(Literal::Float(60.0))))),
-Constraint::Expr(
-Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })),
- Box::new(Expr::Literal(Literal::Float(40.0)))))
-]);
-            println!("{:?}", plan); */
-
-            
-let cons = &vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
-
-target: Vertex {name: "v".into(), anonymous: false, constraints: vec![
-]}
-,
-edge: Edge2 { name: "".into(), inverted: false, constraints: vec![] }}),Constraint::Expr(
-
-Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0))))), Constraint::Expr(
-
-Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(10.0)))))
-];
-
-
-
-
-            let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query),
-             &Collection::new(vertices), cons).probe();
-            //output.inspect(|&(ref x,_)| println!("{:?}", x));
+            let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query), &Collection::new(vertices)).probe();
             (edge_input, query_input, vertex_input, probe)
         });
 
         if computation.index() == 0 { // this block will be executed by worker/thread 0
             
-            query.send(("select v.name".into(),1));
-            let mut file = File::open(&edge_filepath).unwrap();
-            let mut s = String::new();
+            let mut file = File::open(&graph_filepath).unwrap();
+            let mut string = String::new();
              
-            match file.read_to_string(&mut s) {
-                Err(error) => panic!("Couldn't read file {}: {}", edge_filepath,
+            match file.read_to_string(&mut string) {
+                Err(error) => panic!("Couldn't read file {}: {}", graph_filepath,
                                                            error.description()),
-                Ok(_) => println!("{} successfully opened\n", edge_filepath),
+                Ok(_) => println!("Graph File {} successfully opened\n", graph_filepath),
             }
 
-
             // Parse the input
-            let result = graph_parser(s.as_bytes());
+            let result = graph_parser(string.as_bytes());
+
+            file = File::open(&query_filepath).unwrap();
+            let mut query_string = String::new();
+
+            match file.read_to_string(&mut query_string) {
+                Err(error) => panic!("Couldn't read file {}: {}", query_filepath,
+                                                           error.description()),
+                Ok(_) => println!("Query File {} successfully opened\n", query_filepath),
+            }
+            query.send((query_string,1));
+
 
             match result {
                 IResult::Done(_, value) => {
@@ -848,26 +818,26 @@ fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option
         )
 }
 
-fn evaluate_plan(plan: Plan){
 
-    /*let mut result;
-    match plan.operator {
-        Op::Filter => {result =  vertices.filter(|x| {
-                                let s = (*x).clone();
-                                check_node(&(s.into()), plan.filter.unwrap() )})},
-        Op::Join => {},
-        Op::Map => {},
-    }*/
-}
+fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  queries: &Collection<G, String>,
+    vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DifferentialEdge> where G::Timestamp: Lattice {
 
+            
+let constraints = &vec![Constraint::PathPattern(Connection{source : Vertex {name: "v".into(), anonymous: false, constraints: vec![]},
 
-fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G, String>, vertices: &Collection<G, TimelyNode>,
-    constraints: &Vec<Constraint>) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
+target: Vertex {name: "u".into(), anonymous: false, constraints: vec![
+]}
+,
+edge: Edge { name: "".into(), inverted: false, constraints: vec![] }}),Constraint::Expr(
 
+Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ram".into() })), Box::new(Expr::Literal(Literal::Float(5.0))))), Constraint::Expr(
 
-    let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
-    //let mut plans = HashMap::new();
+Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "ram".into() })), Box::new(Expr::Literal(Literal::Float(10.0)))))
+];
+    queries.inspect(|x| (println!("{:?}", x)));
+    
     let mut connections = Vec::new();
+    let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
 
     for constraint in constraints{
         match constraint {
@@ -886,21 +856,41 @@ fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G
         }
     }
 
-    /*for selection in selections.iter() {
-        let (name, filter) = selection;
-        let myfilter= (*filter).clone();
-        let plan = vertices.filter(move |x| {
-            let s = (*x).clone();
-            check_node(&(s.into()),  filter         )
+    let mut plans = HashMap::new();
+
+    for (name, filter) in selections {
+        let result = vertices.filter(move |x| {
+            check_node(&x, &filter)
         });
-        plans.insert(name, plan);
-    }*/
+        //result.inspect(|x| println!("{:?}", x));
+        plans.insert(name, result);
+    }
+
+    let mut result1;
+    for connection in connections {
+        let sources = match plans.get(&connection.source.name){
+            None => vertices,
+            Some(list) => list,
+        };
+
+        let targets = match plans.get(&connection.target.name){
+            Some(list) => list,
+            None => vertices,
+        };
+            result1 =  sources.map(|x| (x.id, x)).join(edges)
+                        .map(|(k,v1,v2)| (v2,v1))
+                        .join(&targets.map(|x| (x.id, x)))
+                        .map(|(k,v1,v2)| (v1,v2));
+
+    result1.inspect(|x| println!("{:?}", x));
+        
+    }
 
 
 
 
 
-    let sources = vertices.filter(|x| {
+   /* let sources = vertices.filter(|x| {
         let s = (*x).clone();
         check_node(&(s.into()), 
             &vec![Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"u".into(), variable:"ram".into()})),
@@ -918,13 +908,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G
 
 
 
-    let result1 =  sources.join(edges)
-                        .map(|(k,v1,v2)| (v2,v1))
-                        .join(&destinations)
-                        .map(|(k,v1,v2)| (v1,v2));
-
-    //join_map(&edges, |_k,&l,&d| (d, l))
-    result1.inspect(|&(ref x,_)| println!("{:?}", x));
+    */
 
 /*
     let mut result = None;
@@ -990,10 +974,11 @@ fn reach (){
 }
 
 
-fn check_node (node: &Node, constraints: &Vec<Expr>) -> bool {
+fn check_node (node: &DifferentialVertex, constraints: &Vec<Expr>) -> bool {
     let mut result = true;
+    let vertex = (*node).clone().into();
     for constraint in constraints {
-        let boolean = match evaluate_expr((*constraint).clone(), node) {
+        let boolean = match evaluate_expr((*constraint).clone(), &vertex) {
             Literal::Boolean(value) => value,
             _ => panic !("Non Boolean value found!")
         }; 
