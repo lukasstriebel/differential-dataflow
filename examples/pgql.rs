@@ -21,6 +21,7 @@ use timely::dataflow::operators::*;
 use differential_dataflow::Collection;
 use differential_dataflow::operators::*;
 use differential_dataflow::lattice::Lattice;
+use differential_dataflow::operators::Join;
 
 use nom::{IResult, space, alpha, digit, Err};
 use std::str;
@@ -31,6 +32,7 @@ use std::io::prelude::*;
 use std::error::Error;
 use std::collections::HashMap;
 use std::cmp::Ordering;
+use std::hash::{Hash, Hasher, SipHasher};
 
 //////////////////////////////
 //                          //
@@ -167,10 +169,20 @@ impl From<TimelyNode> for Node {
     }
 }
 
-/*impl PartialEq for TimelyNode {
+
+impl PartialEq for TimelyNode {
     fn eq(&self, other: &TimelyNode) -> bool {
         self.id == other.id
     }
+}
+
+impl Hash for TimelyNode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl Eq for TimelyNode {
 }
 
 impl PartialOrd for TimelyNode {
@@ -183,7 +195,7 @@ impl Ord for TimelyNode{
     fn cmp(&self, other: &TimelyNode) -> Ordering {
         self.id.cmp(&other.id)
     }
-}*/
+}
 
 macro_rules! try_option {
     ($expr:expr) => (match $expr {
@@ -223,6 +235,7 @@ pub enum Literal {
   Float(f32),
   Boolean(bool),
 }
+
 
 impl Literal {
     fn add(&self, other: Literal) -> Literal {
@@ -645,6 +658,7 @@ Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "
  Box::new(Expr::Literal(Literal::Float(40.0)))))
 ]);
             println!("{:?}", plan); */
+
             
 let cons = &vec![Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
 
@@ -657,16 +671,13 @@ Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "
 
 Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(10.0)))))
 ];
-/*let plan2 = exploreExpr(
-    Expr::Equal(Box::new(
-        Expr::Attribute(Attribute { name: "v".into(), variable: "age".into() })), Box::new(Expr::Literal(Literal::Float(30.0)))));
-println!("{:?}", plan2);         */    
+
 
 
 
             let (probe, output) = evaluate(&Collection::new(graph), &Collection::new(query),
              &Collection::new(vertices), cons).probe();
-            output.inspect(|&(ref x,_)| println!("{:?}", x));
+            //output.inspect(|&(ref x,_)| println!("{:?}", x));
             (edge_input, query_input, vertex_input, probe)
         });
 
@@ -837,6 +848,18 @@ fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option
         )
 }
 
+fn evaluate_plan(plan: Plan){
+
+    /*let mut result;
+    match plan.operator {
+        Op::Filter => {result =  vertices.filter(|x| {
+                                let s = (*x).clone();
+                                check_node(&(s.into()), plan.filter.unwrap() )})},
+        Op::Join => {},
+        Op::Map => {},
+    }*/
+}
+
 
 fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G, String>, vertices: &Collection<G, TimelyNode>,
     constraints: &Vec<Constraint>) -> Collection<G, TimelyEdge> where G::Timestamp: Lattice {
@@ -863,15 +886,46 @@ fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G
         }
     }
 
-    for selection in selections.iter() {
+    /*for selection in selections.iter() {
         let (name, filter) = selection;
         let myfilter= (*filter).clone();
-        /*let plan = vertices.filter(move |x| {
+        let plan = vertices.filter(move |x| {
             let s = (*x).clone();
             check_node(&(s.into()),  filter         )
         });
-        plans.insert(name, plan);*/
-    }
+        plans.insert(name, plan);
+    }*/
+
+
+
+
+
+    let sources = vertices.filter(|x| {
+        let s = (*x).clone();
+        check_node(&(s.into()), 
+            &vec![Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"u".into(), variable:"ram".into()})),
+                Box::new(Expr::Literal(Literal::Float(4f32))))]
+            )})
+    .map(|x| (x.id,x));
+    
+    let destinations = vertices.filter(|x| {
+        let s = (*x).clone();
+        check_node(&(s.into()), 
+            &vec![Expr::Like(Box::new(Expr::Attribute(Attribute{name:"v".into(), variable:"name".into()})),
+                Box::new(Expr::Literal(Literal::Str("node".into()))))]
+            )})
+    .map(|x| (x.id,x));
+
+
+
+    let result1 =  sources.join(edges)
+                        .map(|(k,v1,v2)| (v2,v1))
+                        .join(&destinations)
+                        .map(|(k,v1,v2)| (v1,v2));
+
+    //join_map(&edges, |_k,&l,&d| (d, l))
+    result1.inspect(|&(ref x,_)| println!("{:?}", x));
+
 /*
     let mut result = None;
 
@@ -890,21 +944,11 @@ fn evaluate<G: Scope>(edges: &Collection<G, TimelyEdge>,  queries: &Collection<G
         result = create_join(left, right);
     }*/
 
-    /*let mut result;
-    match plan.operator {
-        Op::Filter => {result =  vertices.filter(|x| {
-                                let s = (*x).clone();
-                                check_node(&(s.into()), plan.filter.unwrap() )})},
-        Op::Join => {},
-        Op::Map => {},
-    }*/
 
-    //let &(ref source, ref target) = x;
+    /*let project = vec![Expr::Attribute(Attribute{name:"v".into(), variable:"name".into()}),
+                     Expr::Attribute(Attribute{name:"v".into(), variable:"age".into()})];
 
-    /*vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
-                     Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})],
-
-    for attr in query.select {
+    for attr in project {
             match attr {
                 Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.variable)),
                 _ => println!("failure")
