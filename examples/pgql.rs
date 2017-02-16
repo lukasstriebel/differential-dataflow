@@ -36,9 +36,10 @@ use std::hash::{Hash, Hasher, SipHasher};
 
 //////////////////////////////
 //                          //
-//       QUERYTYPES         //
+//       TYPES GRAPH        //
 //                          //
 //////////////////////////////
+
 #[derive(Debug, Clone)]
 struct Plan {
    operator: Op,
@@ -82,7 +83,6 @@ pub struct Edge {
 }
 
 #[derive(Debug,PartialEq)]
-
 pub struct Vertex {
     name: String,
     anonymous: bool,
@@ -124,11 +124,6 @@ pub struct Attribute {
     variable: String,
 }
 
-//////////////////////////////
-//                          //
-//            TYPES         //
-//                          //
-//////////////////////////////
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Node{
@@ -136,75 +131,6 @@ pub struct Node{
     label: Vec<String>,
     attribute_values: HashMap<String, Literal>,
 }
-
-#[derive(Debug, Clone, Abomonation)]
-pub struct DifferentialVertex{
-    id: i32,
-    label: Vec<String>,
-    attribute_values: Vec<(String, Literal)>,
-}
-
-impl From<Node> for DifferentialVertex {
-    fn from(data: Node) -> Self {
-        DifferentialVertex {
-            id: data.id,
-            label: data.label,
-            attribute_values: data.attribute_values.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
-        }
-    }
-}
-
-impl From<DifferentialVertex> for Node {
-    fn from(data: DifferentialVertex) -> Self {
-        let mut map = HashMap::new();
-        for pair in data.attribute_values {
-            let (key, value) = pair;
-            map.insert(key, value);
-        }
-        Node {
-            id: data.id,
-            label: data.label,
-            attribute_values: map,
-        }
-    }
-}
-
-
-impl PartialEq for DifferentialVertex {
-    fn eq(&self, other: &DifferentialVertex) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Hash for DifferentialVertex {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-impl Eq for DifferentialVertex {
-}
-
-impl PartialOrd for DifferentialVertex {
-    fn partial_cmp(&self, other: &DifferentialVertex) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for DifferentialVertex{
-    fn cmp(&self, other: &DifferentialVertex) -> Ordering {
-        self.id.cmp(&other.id)
-    }
-}
-
-macro_rules! try_option {
-    ($expr:expr) => (match $expr {
-        Some(val) => val,
-        None => { return None }
-    })
-}
-
-type DifferentialEdge = (i32, i32);
 
 
 #[derive(Debug, PartialEq)]
@@ -215,13 +141,6 @@ pub struct GraphEdge{
     attribute_values: HashMap<String, Literal>,
 }
 
-#[derive(Debug)]
-pub struct DiffEdge{
-    source: Node,
-    target: Node,
-    label: String,    
-    attribute_values: HashMap<String, Literal>,
-}
 
 #[derive(Debug)]
 pub struct Graph{
@@ -235,7 +154,6 @@ pub enum Literal {
   Float(f32),
   Boolean(bool),
 }
-
 
 impl Literal {
     fn add(&self, other: Literal) -> Literal {
@@ -390,14 +308,828 @@ impl Literal {
         }
     }
 }
+//////////////////////////////
+//                          //
+//      TYPES QUERY         //
+//                          //
+//////////////////////////////
 
 
+#[allow(dead_code)]
+pub struct PathExpr {
+    source: Vertex,
+    target: Vertex,
+    edge: Edge,
+    min_occ: i32,
+    max_occ: i32,
+}
+
+#[derive(Debug)]
+pub enum QueryConnection {
+    Edge(Edge),
+    Path(RegularPath),
+}
+
+#[derive(Debug)]
+pub struct RepeatablePath {
+    min: i32,
+    max: i32,
+    path: RegularPath,
+}
+
+
+#[derive(Debug)]
+pub enum RegularPath {
+    Predefined(String),
+    Alternative(Box<RegularPath>,Box<RegularPath>),
+    Repeatable(Box<RepeatablePath>),
+    Inverted(Box<RegularPath>),
+}
+
+#[derive(Debug)]
+pub struct GroupBy {
+    group: Vec<Expr>,
+}
+
+#[derive(Debug)]
+pub struct OrderBy {
+    order: Vec<OrderTerm>,
+}
+
+#[derive(Debug)]
+pub struct OrderTerm {
+    expr: Expr,
+    asc: bool,
+}
+
+#[derive(Debug)]
+pub enum Type {
+    Str,
+    Float,
+    Boolean,
+    Integer,
+}
+
+#[derive(Debug)]
+pub enum QueryVariable {
+    Vertex,
+    Edge,
+    Path,
+    Expression,
+}
+
+#[derive(Debug,Clone)]
+pub enum Oper {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Modulo,
+    Equal,
+    NotEqual,
+    Greater,
+    GreaterEq,
+    Smaller,
+    SmallerEq,
+    Like,
+    And,
+    Or,
+    Not, 
+}
+
+
+#[derive(Debug)]
+pub enum BuiltIn {
+    Id,
+    InDegree,
+    Has(String),
+    HasLabel(String),
+    OutDegree,
+    Labels,
+    Label,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Aggregate {
+    Count(Attribute),
+    Min(Attribute),
+    Max(Attribute),
+    Sum(Attribute),
+    Avg(Attribute),
+}
+
+
+
+//////////////////////////////
+//                          //
+//      TYPES EVALUATION    //
+//                          //
+//////////////////////////////
+
+
+#[derive(Debug, Clone, Abomonation)]
+pub struct DifferentialVertex{
+    id: i32,
+    label: Vec<String>,
+    attribute_values: Vec<(String, Literal)>,
+}
+
+impl From<Node> for DifferentialVertex {
+    fn from(data: Node) -> Self {
+        DifferentialVertex {
+            id: data.id,
+            label: data.label,
+            attribute_values: data.attribute_values.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        }
+    }
+}
+
+impl From<DifferentialVertex> for Node {
+    fn from(data: DifferentialVertex) -> Self {
+        let mut map = HashMap::new();
+        for pair in data.attribute_values {
+            let (key, value) = pair;
+            map.insert(key, value);
+        }
+        Node {
+            id: data.id,
+            label: data.label,
+            attribute_values: map,
+        }
+    }
+}
+
+
+impl PartialEq for DifferentialVertex {
+    fn eq(&self, other: &DifferentialVertex) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Hash for DifferentialVertex {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+    }
+}
+
+impl Eq for DifferentialVertex {
+}
+
+impl PartialOrd for DifferentialVertex {
+    fn partial_cmp(&self, other: &DifferentialVertex) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for DifferentialVertex{
+    fn cmp(&self, other: &DifferentialVertex) -> Ordering {
+        self.id.cmp(&other.id)
+    }
+}
+
+macro_rules! try_option {
+    ($expr:expr) => (match $expr {
+        Some(val) => val,
+        None => { return None }
+    })
+}
+
+type DifferentialEdge = (i32, i32);
+
+#[derive(Debug)]
+pub struct DiffEdge{
+    source: Node,
+    target: Node,
+    label: String,    
+    attribute_values: HashMap<String, Literal>,
+}
+
+//////////////////////////////
+//                          //
+//          QUERY           //
+//                          //
+//////////////////////////////
+
+
+
+named!(pgql_query<Query>,
+    chain!(
+        select: select_clause ~
+        space ~
+        vvhere: where_clause ,
+        //opt!(solutionModifier),
+        || Query { select: select, vvhere: vvhere}
+    )
+);
+
+
+
+//////////////////////////////
+//                          //
+//          SELECT          //
+//                          //
+//////////////////////////////
+
+
+named!(select_clause<Vec<Expr> >,
+    chain!( 
+        tag_no_case_s!("select") ~
+        space ~
+        a: select_elems,
+        || a
+    )
+);
+
+
+named!(select_elems<Vec<Expr> >,
+    many1!(
+        alt_complete!(
+            /*aggregate => {|aggregation| 
+                        Expr::Aggregation(aggregation)} |*/
+            do_parse!(
+                v: variable_name >>
+                char!(',') >>
+                opt!(space) >> ({
+                    let (name, variable) = v;
+                        let a = Attribute{name: name, variable: variable};
+                        Expr::Attribute(a)})
+            )  
+            | variable_name => {|v| {let (name, variable) = v;
+                        let a = Attribute{name: name, variable: variable};
+                        Expr::Attribute(a)}}
+           
+            //| tag_s!("*")
+        )
+    )    
+);
+
+//////////////////////////////
+//                          //
+//            WHERE         //
+//                          //
+//////////////////////////////
+
+
+named!(where_clause< Vec<Constraint> >,
+    chain!(
+        tag_no_case_s!("where") ~
+        space ~
+        constraints: constraints,
+        || constraints
+    )
+);
+
+named!(constraints<Vec <Constraint> >,
+    many1!(
+        alt_complete!(
+            do_parse!(
+                constraints: constraint >>
+                char!(',') >>
+                opt!(space) >>
+                (constraints)
+            )  |
+            constraint
+        )
+    )    
+);
+
+
+named!(constraint<Constraint>,
+    alt!(
+        path_pattern       => { |p| Constraint::PathPattern(p)             } |
+        expression         => { |e| Constraint::Expr(e)        }
+    )
+);
+
+//////////////////////////////
+//                          //
+//            PATH          //
+//                          //
+//////////////////////////////
+
+
+/*named!(pathPattern< Expr >,
+    chain!(
+        q: queryVertex ~
+        space ~ 
+        m: many0!(
+            chain!(
+                //qc: queryConnection ~
+                qc: queryEdge ~
+                space ~
+                qv: queryVertex ~
+                space?,
+            || {Connection {source:q, target: qv}}
+            )
+        ), 
+        || Expr::PathPattern(m)
+    )
+);*/
+
+named!(path_pattern< Connection >,
+    chain!(
+        source: query_vertex ~
+        space ~ 
+        edge: query_edge ~
+        space ~
+        target: query_vertex, 
+        || Connection{source: source, target: target, edge: edge}
+    )
+);
+
+
+
+named!(query_vertex<Vertex>,
+    delimited!(
+        char!('('),
+        do_parse!(
+            vertex_name: opt!(char_only) >> 
+            opt!(space) >>
+            label: opt!(label_constraint) >>
+            opt!(space) >>
+            inlined: opt!(inlined_constraints) >>
+            ({
+                
+                let mut constraints: Vec<Expr> = match inlined {
+                    Some(value) => value,
+                    None => Vec::new()
+                };
+
+                match label {
+                    Some(value) => {constraints.push(value);},
+                    None => {}
+                }
+
+                match vertex_name {
+                    Some(name) => {Vertex{name: String::from(name), anonymous: false, constraints: constraints }},
+                    None => Vertex{name: String::from(""), anonymous: true, constraints: constraints }
+                }
+            })                
+        ),
+        char!(')')
+  )
+);
+
+named!(query_connection<QueryConnection>,
+    alt_complete!(
+        query_edge => {|edge| QueryConnection::Edge(edge)} |
+        query_path => {|path| QueryConnection::Path(path)}
+    )
+);
+
+
+named!(query_edge<Edge>,
+        alt_complete!(
+            tag!("-->") => { |_| Edge {name: String::from(""), inverted: false, constraints: Vec::new() } } |
+            tag!("<--") => { |_| Edge {name: String::from(""), inverted: true, constraints: Vec::new() } } | 
+            tag!("->") => { |_| Edge {name: String::from(""), inverted: false, constraints: Vec::new() } } | 
+            tag!("<-") => { |_| Edge {name: String::from(""), inverted: true, constraints: Vec::new() } } | 
+            delimited!(
+                tag!("-["),
+                do_parse!(
+                    edge_name: opt!(char_only) >> 
+                    opt!(space) >>
+                    label: opt!(label_constraint) >>
+                    opt!(space) >>
+                    inlined: opt!(inlined_constraints) >>
+                    ({
+                        
+                        let mut constraints: Vec<Expr> = match inlined {
+                            Some(value) => value,
+                            None => Vec::new()
+                        };
+
+                        match label {
+                            Some(value) => {constraints.push(value);},
+                            None => {}
+                        }
+
+                        match edge_name {
+                            Some(name) => {Edge{name: String::from(name), inverted: false, constraints: constraints }},
+                            None => Edge{name: String::from(""), inverted: false, constraints: constraints }
+                        }
+                    })                
+                ),
+                tag!("]->")
+            ) |
+            delimited!(
+                tag!("<-["),
+                do_parse!(
+                    edge_name: opt!(char_only) >> 
+                    opt!(space) >>
+                    label: opt!(label_constraint) >>
+                    opt!(space) >>
+                    inlined: opt!(inlined_constraints) >>
+                    ({
+                        
+                        let mut constraints: Vec<Expr> = match inlined {
+                            Some(value) => value,
+                            None => Vec::new()
+                        };
+
+                        match label {
+                            Some(value) => {constraints.push(value);},
+                            None => {}
+                        }
+
+                        match edge_name {
+                            Some(name) => {Edge{name: String::from(name), inverted: true, constraints: constraints }},
+                            None => Edge{name: String::from(""), inverted: true, constraints: constraints }
+                        }
+                    })                
+                ),
+                tag!("]-")
+            )
+        )
+    
+);
+
+
+named!(query_path<RegularPath>,
+    alt!(
+        chain!(
+            tag!("-/:") ~
+            space? ~
+            reg_path: regular_path_pattern ~
+            space? ~
+            tag!("/->"),
+            || reg_path
+        ) |
+        chain!(
+            tag!("<-/:") ~
+            space? ~
+            reg_path: regular_path_pattern ~
+            space? ~
+            tag!("/-"),
+            || RegularPath::Inverted(Box::new(reg_path))
+        )
+    )
+);
+
+named!(regular_path_pattern<RegularPath>,
+    alt_complete!(
+        char_only => {|name| RegularPath::Predefined(String::from(name))} | //Label or Pathpattern
+        repeatable_path => {|repeatable_path| RegularPath::Repeatable(Box::new(repeatable_path))} |
+        alternative_path
+    )
+);
+
+named!(repeatable_path<RepeatablePath>,
+    do_parse!(
+        reg_path: regular_path_pattern >>
+        opt!(space) >>
+        min: unsigned_int >>
+        dots: opt!(tag!("..")) >>
+        max: opt!(unsigned_int) >>
+        ({
+            if dots.is_some() {
+                match max {
+                    Some(value) => { RepeatablePath {min: min, max: value, path: reg_path} },
+                    None => { RepeatablePath {min: min, max: 2147483647, path: reg_path} }
+                }
+            }
+            else {
+                RepeatablePath {min: min, max: min, path: reg_path}
+            }
+        })
+    )
+);
+
+named!(alternative_path< RegularPath >,
+        chain!(
+            reg_path: regular_path_pattern ~
+            space ~
+            char!('|') ~
+            space ~
+            alternative: regular_path_pattern,
+            || RegularPath::Alternative(Box::new(reg_path), Box::new(alternative))
+        )
+);
+
+
+named!(label_constraint<Expr>,
+    chain!(
+        char!(':') ~
+        opt!(space) ~
+        label: char_only, // Label
+        || Expr::Label(String::from(label))
+    )
+);
+
+named!(inlined_constraints<Vec<Expr> >,
+    chain!(
+        tag_no_case_s!("with") ~
+        space ~
+        exprs: expressions,
+        || exprs
+    )
+);
+
+named!(expressions<Vec<Expr> >,
+    many1!(
+        alt_complete!(
+            do_parse!(
+                expr: expression >>
+                char!(',') >>
+                opt!(space) >>
+                (expr)
+            )  |
+            expression
+        )
+    )
+);
+
+
+//////////////////////////////
+//                          //
+//     EXPRESSION           //
+//                          //
+//////////////////////////////
+
+
+
+/*named!(operand<Expr>,
+    do_parse!(
+        negate: opt!(alt!(tag_no_case_s!("not")|tag!("!"))) >>
+        opt!(space) >>
+        a: alt!(
+                literal => {|l| Expr::Literal(l) } |
+                variable_name => {
+                    |v| {
+                        let (name, variable) = v;
+                        let a = Attribute{name: name, variable: variable};
+                        Expr::Attribute(a) 
+                    }
+                }
+                
+            ) >>
+        ({
+            match negate {
+                None => a,
+                Some(_) => Expr::Not(Box::new(a))
+            }
+        })
+    )
+);*/
+
+
+named!(operand<Expr>,
+        alt!(
+                literal => {|l| Expr::Literal(l) } |
+                variable_name => {
+                    |value| {
+                        let (name, variable) = value;
+                        let attribute = Attribute{name: name, variable: variable};
+                        Expr::Attribute(attribute) 
+                    }
+                }
+                
+            )
+);
+
+named!(expression< Expr >, chain!(
+    initial: operand ~ 
+    remainder: many0!(
+            alt!(
+                chain!(opt!(space) ~ tag!("+")  ~ opt!(space) ~ op: operand,   || (Oper::Add, op))       |
+                chain!(opt!(space) ~ tag!("-")  ~ opt!(space) ~ op: operand,   || (Oper::Sub, op))       |
+                chain!(opt!(space) ~ tag!("*")  ~ opt!(space) ~ op: operand,   || (Oper::Mul, op))       |
+                chain!(opt!(space) ~ tag!("/")  ~ opt!(space) ~ op: operand,   || (Oper::Div, op))       |
+                chain!(opt!(space) ~ tag!("%")  ~ opt!(space) ~ op: operand,   || (Oper::Modulo, op))    |
+                chain!(opt!(space) ~ tag!("=")  ~ opt!(space) ~ op: operand,   || (Oper::Equal, op))     |
+                chain!(opt!(space) ~ tag!("!=") ~ opt!(space) ~ op: operand,   || (Oper::NotEqual, op))  |
+                chain!(opt!(space) ~ tag!(">")  ~ opt!(space) ~ op: operand,   || (Oper::Greater, op))   |
+                chain!(opt!(space) ~ tag!(">=") ~ opt!(space) ~ op: operand,   || (Oper::GreaterEq, op)) |
+                chain!(opt!(space) ~ tag!("<")  ~ opt!(space) ~ op: operand,   || (Oper::Smaller, op))   |
+                chain!(opt!(space) ~ tag!("<=") ~ opt!(space) ~ op: operand,   || (Oper::SmallerEq, op)) |
+                chain!(opt!(space) ~ tag!("=~") ~ opt!(space) ~ op: operand,   || (Oper::Like, op))      |
+                chain!(opt!(space) ~ tag_no_case_s!("and") ~ opt!(space) ~ op: operand, || (Oper::And, op))       |
+                chain!(opt!(space) ~ tag_no_case_s!("or") ~ opt!(space) ~ op: operand,  || (Oper::Or, op))    
+             )
+        ), ||
+    fold_exprs(initial, remainder) 
+    ) 
+    
+    
+);
+
+
+
+fn fold_exprs(initial: Expr, remainder: Vec<(Oper, Expr)>) -> Expr {
+    remainder.into_iter().fold(initial, |acc, pair| {
+        let (oper, expr) = pair;
+        match oper {
+            Oper::Add       => Expr::Add(Box::new(acc), Box::new(expr)),
+            Oper::Sub       => Expr::Sub(Box::new(acc), Box::new(expr)),
+            Oper::Mul       => Expr::Mul(Box::new(acc), Box::new(expr)),
+            Oper::Div       => Expr::Div(Box::new(acc), Box::new(expr)),
+            Oper::Modulo    => Expr::Modulo(Box::new(acc), Box::new(expr)),
+            Oper::Equal     => Expr::Equal(Box::new(acc), Box::new(expr)),
+            Oper::NotEqual  => Expr::NotEqual(Box::new(acc), Box::new(expr)),
+            Oper::Greater   => Expr::Greater(Box::new(acc), Box::new(expr)),
+            Oper::GreaterEq => Expr::GreaterEq(Box::new(acc), Box::new(expr)),
+            Oper::Smaller   => Expr::Smaller(Box::new(acc), Box::new(expr)),
+            Oper::SmallerEq => Expr::SmallerEq(Box::new(acc), Box::new(expr)),            
+            Oper::Like      => Expr::Like(Box::new(acc), Box::new(expr)),
+            Oper::And       => Expr::And(Box::new(acc), Box::new(expr)),
+            Oper::Or        => Expr::Or(Box::new(acc), Box::new(expr)),
+            Oper::Not       => Expr::Not(Box::new(acc)),
+        }
+    })
+}
+
+
+
+
+named!(aggregate<Aggregate>,
+    alt_complete!(
+        do_parse!(
+            tag_no_case_s!("count") >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            ({
+                let (name, variable) = variable_name;
+                let attribute = Attribute{name: name, variable: variable};
+                Aggregate::Count(attribute)
+            })
+            ) |
+        do_parse!(
+            tag_no_case_s!("min") >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            ({
+                let (name, variable) = variable_name;
+                let attribute = Attribute{name: name, variable: variable};
+                Aggregate::Min(attribute)
+            })
+            ) |
+        do_parse!(
+            tag_no_case_s!("max") >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            ({
+                let (name, variable) = variable_name;
+                let attribute = Attribute{name: name, variable: variable};
+                Aggregate::Max(attribute)
+            })
+            ) |
+        do_parse!(
+            tag_no_case_s!("sum") >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            ({
+                let (name, variable) = variable_name;
+                let attribute = Attribute{name: name, variable: variable};
+                Aggregate::Sum(attribute)
+            })
+            ) |
+        do_parse!(
+            tag_no_case_s!("avg") >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            ({
+                let (name, variable) = variable_name;
+                let attribute = Attribute{name: name, variable: variable};
+                Aggregate::Avg(attribute)
+            })
+            ) 
+    )
+);
+
+named!(builtin_function<BuiltIn>,
+    alt_complete!(
+        tag!("id()")        => { |_| BuiltIn::Id } |
+        tag!("inDegree()")  => { |_| BuiltIn::InDegree } |
+        tag!("outDegree()") => { |_| BuiltIn::OutDegree } |
+        tag!("labels()")    => { |_| BuiltIn::Labels } |
+        tag!("label()")     => { |_| BuiltIn::Label } 
+    )
+);
+
+
+//////////////////////////////
+//                          //
+//    SOLUTION MODIFIER     //
+//                          //
+//////////////////////////////
+
+
+
+named!(solution_modifier<(GroupBy, OrderBy, (i32, i32))>,
+    chain!(
+        group: group_by ~
+        space ~
+        order: order_by ~
+        space ~
+        limit: limit_offset,
+        || (group, order, limit)
+    )
+);
+
+
+named!(order_by<OrderBy >,
+    chain!(
+        tag_no_case_s!("order") ~
+        space ~
+        tag_no_case_s!("by") ~
+        space ~
+        order_terms: many1!(
+            chain!(
+                order_term: order_term ~
+                opt!(space) ~
+                opt!(char!(',')),
+                || order_term
+                )
+            ),
+        || OrderBy{order: order_terms}
+    )
+);
+
+named!(order_term<OrderTerm>,
+    alt_complete!(
+        chain!(
+            expr: expression ~
+            space ~
+            asc: alt!(
+                    tag_no_case_s!("asc") => { |_| true } |
+                    tag_no_case_s!("desc") => { |_| false } |
+                    tag!("") => { |_| true }
+                ),
+            || {OrderTerm {expr: expr, asc: asc}}
+        ) |
+        chain!(
+            asc: alt!(
+                tag_no_case_s!("asc") => { |_| true } |
+                tag_no_case_s!("desc") => { |_| false } |
+                tag!("") => { |_| true }
+            ) ~
+            space ~
+            expr: expression,
+        || {OrderTerm {expr: expr, asc: asc}}
+        )
+    )
+);
+
+
+named!(limit_offset<(i32, i32)>,
+    alt!(
+        chain!(
+            tag_no_case_s!("limit") ~
+            space ~
+            limit: unsigned_int ~
+            space ~
+            tag_no_case_s!("offset") ~
+            space ~
+            offset: unsigned_int,
+            || (limit, offset)
+        ) |
+        chain!(
+            tag_no_case_s!("offset") ~
+            space ~
+            offset: unsigned_int ~
+            space ~
+            tag_no_case_s!("limit") ~
+            space ~
+            limit: unsigned_int,
+            || (limit, offset)
+
+        )
+    )
+);
+
+named!(group_by<GroupBy>,
+    chain!(
+        tag_no_case_s!("group") ~
+        space ~
+        tag_no_case_s!("by") ~
+        space ~
+        expressions: many1!(
+            chain!(
+                expr: expression ~ 
+                opt!(space) ~
+                opt!(char!(',')),
+                || expr
+            )
+        ),
+        || GroupBy{ group: expressions}
+
+    )
+);
 
 //////////////////////////////
 //                          //
 //            UTIL          //
 //                          //
 //////////////////////////////
+
+
+named!(variable_name<(String,String)>,
+    alt_complete!(            
+            chain!(
+                name: char_only ~
+                char!('.') ~
+                attribute: char_only,
+                || (String::from(name), String::from(attribute))
+            ) |
+            char_only => {|attribute| (String::from(""), String::from(attribute))} 
+    )
+
+);
 
 
 named!(literal<Literal>,
@@ -622,7 +1354,7 @@ fn main() {
 
     let query_filepath: String = std::env::args().nth(2).unwrap();
 
-    // define a new computational scope, in which to run BFS
+    // define a new computational scope, in which to run the query
     timely::execute_from_args(std::env::args().skip(2), move |computation| {
 
         let timer = Instant::now();
@@ -690,7 +1422,6 @@ fn main() {
                 }
                 _ => println!("{:?}", result)
             }
-            println!("loaded; elapsed: {:?}", timer.elapsed());
         }
 
         // advance epoch
@@ -701,9 +1432,9 @@ fn main() {
         computation.step_while(|| probe.lt(graph.time()));
 
 
-        //if computation.index() == 0 {
-          //  println!("stable; elapsed: {:?}", timer.elapsed());
-        //}
+        if computation.index() == 0 {
+            println!("stable; elapsed: {:?}", timer.elapsed());
+        }
 
     }).unwrap();
 
@@ -822,7 +1553,6 @@ fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option
 fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  queries: &Collection<G, String>,
     vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DifferentialEdge> where G::Timestamp: Lattice {
 
-            
 let constraints = &vec![Constraint::PathPattern(Connection{source : Vertex {name: "v".into(), anonymous: false, constraints: vec![]},
 
 target: Vertex {name: "u".into(), anonymous: false, constraints: vec![
@@ -830,11 +1560,39 @@ target: Vertex {name: "u".into(), anonymous: false, constraints: vec![
 ,
 edge: Edge { name: "".into(), inverted: false, constraints: vec![] }}),Constraint::Expr(
 
-Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ram".into() })), Box::new(Expr::Literal(Literal::Float(5.0))))), Constraint::Expr(
+Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ram".into() })), Box::new(Expr::Literal(Literal::Float(50.0))))), Constraint::Expr(
 
 Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "ram".into() })), Box::new(Expr::Literal(Literal::Float(10.0)))))
 ];
-    queries.inspect(|x| (println!("{:?}", x)));
+
+let mut query;
+queries.inspect(move |&(ref x,_)| {
+   query = pgql_query(x.as_bytes());
+});
+
+/*
+    let mut string = String::new();
+    queries.inspect(move |&(ref x,_)| {string = x.clone(); s_slice = &string[..];});
+    let query = pgql_query("SELECT v.name WHERE (v) -> (u), v.ram < 5, u.ram > 10".as_bytes());
+    let constraints = match query {
+        IResult::Done(_, value) => {
+            println!("{:?}", value);
+            &value.vvhere
+        }
+        IResult::Error(value) => {
+            match value {
+                Err::Position(parse, array) => {
+                    println!("{:?} Parser failed\n", parse);
+                    println!("Remaining Input: {:?}", std::str::from_utf8(array));
+                }
+                _ => println!("{:?}",value)
+            }
+            &vec![]
+
+        }
+        _ => {println!("{:?}", query); &vec![]}
+    
+    };*/
     
     let mut connections = Vec::new();
     let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
@@ -862,7 +1620,6 @@ Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "
         let result = vertices.filter(move |x| {
             check_node(&x, &filter)
         });
-        //result.inspect(|x| println!("{:?}", x));
         plans.insert(name, result);
     }
 
@@ -885,30 +1642,6 @@ Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "
     result1.inspect(|x| println!("{:?}", x));
         
     }
-
-
-
-
-
-   /* let sources = vertices.filter(|x| {
-        let s = (*x).clone();
-        check_node(&(s.into()), 
-            &vec![Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"u".into(), variable:"ram".into()})),
-                Box::new(Expr::Literal(Literal::Float(4f32))))]
-            )})
-    .map(|x| (x.id,x));
-    
-    let destinations = vertices.filter(|x| {
-        let s = (*x).clone();
-        check_node(&(s.into()), 
-            &vec![Expr::Like(Box::new(Expr::Attribute(Attribute{name:"v".into(), variable:"name".into()})),
-                Box::new(Expr::Literal(Literal::Str("node".into()))))]
-            )})
-    .map(|x| (x.id,x));
-
-
-
-    */
 
 /*
     let mut result = None;
@@ -943,34 +1676,6 @@ Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "
         true
         //(roots.contains(source) && destinations.contains(target))
     })
-}
-
-
-
-fn reach (){
-    /*let roots =     vertices.filter(|x| {
-        let s = (*x).clone();
-        checkNode(&(s.into()), 
-            vec![Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
-                Box::new(Expr::Literal(Literal::Float(5f32))))]
-            )})//.map(|x| (x.id, x.id));
-    
-    let destinations = vertices.filter(|x| {
-        let s = (*x).clone();
-        checkNode(&(s.into()), 
-            vec![Expr::Greater(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"ram".into()})),
-                Box::new(Expr::Literal(Literal::Float(10.5))))]
-            )}).map(|x| (x.id, x.id));
-
-    roots.iterate(|inner| {
-
-        let edges = edges.enter(&inner.scope());
-        let roots = roots.enter(&inner.scope());
-
-        inner.join_map(&edges, |_k,&l,&d| (d, l))
-             .concat(&roots)
-             .distinct()
-     })*/
 }
 
 
@@ -1040,4 +1745,97 @@ fn util_test() {
     //String
     assert_eq!(string("'Hello World'".as_bytes()), IResult::Done(&b""[..], "Hello World"));
     assert_eq!(string("\"Special chars @#%?!\"".as_bytes()), IResult::Done(&b""[..], "Special chars @#%?!")); 
+}
+
+#[test]
+fn query_test() {
+    assert_eq!(pgql_query("select s.name where s.position = \"Access\"".as_bytes()), IResult::Done(&b""[..],
+        Query{ 
+            select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()})],
+            vvhere: vec![
+                Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"position".into()})),
+                Box::new(Expr::Literal(Literal::Str("Access".into()))))
+            ]}));
+
+    assert_eq!(pgql_query("select s.name, s.status where s.age < 40".as_bytes()), IResult::Done(&b""[..],
+        Query{ 
+            select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
+                         Expr::Attribute(Attribute{name:"s".into(), variable:"status".into()})],
+            vvhere: vec![
+                Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})),
+                Box::new(Expr::Literal(Literal::Integer(40))))
+            ]}));
+
+    assert_eq!(pgql_query("select n.name, m.name where (n) -[e with e.type = \"Hosting\"]-> (m)".as_bytes()), IResult::Done(&b""[..],
+        Query{ 
+            select: vec![Expr::Attribute(Attribute{name:"n".into(), variable:"name".into()}),
+                         Expr::Attribute(Attribute{name:"m".into(), variable:"name".into()})],
+            vvhere: vec![Expr::PathPattern(Connection{
+                source: Vertex{name:"n".into(), anonymous:false, constraints: vec![]},
+                target: Vertex{name:"m".into(), anonymous:false, constraints: vec![]},
+                edge: Edge{name:"e".into(), inverted: false, constraints: vec![
+                    Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"e".into(), variable:"type".into()})),
+                    Box::new(Expr::Literal(Literal::Str("Hosting".into()))))
+                    ]}})]
+            }));
+}
+
+
+#[test]
+fn expr_test() {
+    assert_eq!(expression("true and false".as_bytes()), IResult::Done(&b""[..],
+        Expr::And(Box::new(Expr::Literal(Literal::Boolean(true))), Box::new(Expr::Literal(Literal::Boolean(false))))));
+
+    assert_eq!(expression("false or true".as_bytes()), IResult::Done(&b""[..],
+        Expr::Or(Box::new(Expr::Literal(Literal::Boolean(false))), Box::new(Expr::Literal(Literal::Boolean(true))))));
+
+    assert_eq!(expression("10 + 5".as_bytes()), IResult::Done(&b""[..],
+        Expr::Add(Box::new(Expr::Literal(Literal::Integer(10))), Box::new(Expr::Literal(Literal::Integer(5))))));
+
+    assert_eq!(expression("10 - 5".as_bytes()), IResult::Done(&b""[..],
+        Expr::Sub(Box::new(Expr::Literal(Literal::Integer(10))), Box::new(Expr::Literal(Literal::Integer(5))))));
+
+    assert_eq!(expression("10 * 5".as_bytes()), IResult::Done(&b""[..],
+        Expr::Mul(Box::new(Expr::Literal(Literal::Integer(10))), Box::new(Expr::Literal(Literal::Integer(5))))));
+
+    assert_eq!(expression("10 / 5".as_bytes()), IResult::Done(&b""[..],
+        Expr::Div(Box::new(Expr::Literal(Literal::Integer(10))), Box::new(Expr::Literal(Literal::Integer(5))))));
+
+    assert_eq!(expression("10 % 5".as_bytes()), IResult::Done(&b""[..],
+        Expr::Modulo(Box::new(Expr::Literal(Literal::Integer(10))), Box::new(Expr::Literal(Literal::Integer(5))))));
+
+    assert_eq!(expression("10 > 5".as_bytes()), IResult::Done(&b""[..],
+        Expr::Greater(Box::new(Expr::Literal(Literal::Integer(10))), Box::new(Expr::Literal(Literal::Integer(5))))));
+
+    assert_eq!(expression("10.1 >= 5.1".as_bytes()), IResult::Done(&b""[..],
+        Expr::GreaterEq(Box::new(Expr::Literal(Literal::Float(10.1))), Box::new(Expr::Literal(Literal::Float(5.1))))));
+        
+    assert_eq!(expression("5 < 10".as_bytes()), IResult::Done(&b""[..],
+        Expr::Smaller(Box::new(Expr::Literal(Literal::Integer(5))), Box::new(Expr::Literal(Literal::Integer(10))))));
+           
+    assert_eq!(expression("5.1 <= 10.1".as_bytes()), IResult::Done(&b""[..],
+        Expr::SmallerEq(Box::new(Expr::Literal(Literal::Float(5.1))), Box::new(Expr::Literal(Literal::Float(10.1))))));
+                
+    assert_eq!(expression("10 != 5".as_bytes()), IResult::Done(&b""[..],
+        Expr::NotEqual(Box::new(Expr::Literal(Literal::Integer(10))), Box::new(Expr::Literal(Literal::Integer(5))))));
+
+    
+}
+
+#[test]
+fn vertex_test() {
+    assert_eq!(query_vertex("()".as_bytes()), IResult::Done(&b""[..],
+        Vertex {name: String::from(""), anonymous: true, constraints: Vec::new()} ));
+
+    assert_eq!(query_vertex("(v)".as_bytes()), IResult::Done(&b""[..],
+        Vertex {name: String::from("v"), anonymous: false, constraints: Vec::new()} ));
+}
+
+#[test]
+fn edge_test() {
+    assert_eq!(query_edge("->".as_bytes()), IResult::Done(&b""[..],
+        Edge {name: String::from(""), inverted: false, constraints: Vec::new()} ));
+
+    assert_eq!(query_edge("<-".as_bytes()), IResult::Done(&b""[..],
+        Edge {name: String::from(""), inverted: true, constraints: Vec::new()} ));
 }
