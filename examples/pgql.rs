@@ -512,7 +512,7 @@ pub struct DiffEdge{
 
 
 
-named!(pgql_query<Query>,
+/*named!(pgql_query<Query>,
     chain!(
         select: select_clause ~
         space ~
@@ -520,9 +520,17 @@ named!(pgql_query<Query>,
         //opt!(solutionModifier),
         || Query { select: select, vvhere: vvhere}
     )
-);
+);*/
 
-
+pub fn pgql_query(input: &[u8]) -> IResult<&[u8], Query> {
+    do_parse!(
+        select: select_clause >>
+        space >>
+        vvhere: where_clause >>
+        //opt!(solutionModifier),
+        (Query { select: select, vvhere: vvhere})
+    )
+}
 
 //////////////////////////////
 //                          //
@@ -1548,7 +1556,7 @@ fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option
             )
         )
 }
-
+fn test(s:&[u8]) -> i32{1}
 
 fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  queries: &Collection<G, String>,
     vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DifferentialEdge> where G::Timestamp: Lattice {
@@ -1565,19 +1573,70 @@ Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "
 Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "ram".into() })), Box::new(Expr::Literal(Literal::Float(10.0)))))
 ];
 
-let mut query;
+/*let mut query = 1;
 queries.inspect(move |&(ref x,_)| {
-   query = pgql_query(x.as_bytes());
-});
+    let s = (*x).clone();
+   query = test(s.as_bytes());
+});*/
+let query = pgql_query("SELECT v.name WHERE (v) -> (u), v.ram < 5, u.ram > 10".as_bytes());
 
-/*
-    let mut string = String::new();
+
+
+    /*let mut string = String::new();
     queries.inspect(move |&(ref x,_)| {string = x.clone(); s_slice = &string[..];});
-    let query = pgql_query("SELECT v.name WHERE (v) -> (u), v.ram < 5, u.ram > 10".as_bytes());
-    let constraints = match query {
+    let query = pgql_query("SELECT v.name WHERE (v) -> (u), v.ram < 5, u.ram > 10".as_bytes());*/
+    match query {
         IResult::Done(_, value) => {
-            println!("{:?}", value);
-            &value.vvhere
+            let mut connections = Vec::new();
+            let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
+
+            for constraint in &value.vvhere{
+                match constraint {
+                    &Constraint::PathPattern(ref pattern) => connections.push(pattern),
+                    &Constraint::Expr(ref expr) => {
+                        let name = exploreExpr((*expr).clone());
+                        let mut new = false;
+                        match selections.get_mut(&name) {
+                            Some(vec) => vec.push((*expr).clone()),
+                            None => new = true,
+                        }
+                        if new {
+                            selections.insert(name, vec![(*expr).clone()]);
+                        }
+                    },
+                }
+            }
+
+            let mut plans = HashMap::new();
+
+            for (name, filter) in selections {
+                let result = vertices.filter(move |x| {
+                    check_node(&x, &filter)
+                });
+                plans.insert(name, result);
+            }
+
+            let mut result1;
+            for connection in connections {
+                let sources = match plans.get(&connection.source.name){
+                    None => vertices,
+                    Some(list) => list,
+                };
+
+                let targets = match plans.get(&connection.target.name){
+                    Some(list) => list,
+                    None => vertices,
+                };
+                    result1 =  sources.map(|x| (x.id, x)).join(edges)
+                                .map(|(k,v1,v2)| (v2,v1))
+                                .join(&targets.map(|x| (x.id, x)))
+                                .map(|(k,v1,v2)| (v1,v2));
+
+            result1.inspect(|x| println!("{:?}", x));
+                
+            }
+
+
         }
         IResult::Error(value) => {
             match value {
@@ -1587,61 +1646,13 @@ queries.inspect(move |&(ref x,_)| {
                 }
                 _ => println!("{:?}",value)
             }
-            &vec![]
 
         }
-        _ => {println!("{:?}", query); &vec![]}
+        _ => println!("{:?}", query)
     
-    };*/
+    };
     
-    let mut connections = Vec::new();
-    let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
-
-    for constraint in constraints{
-        match constraint {
-            &Constraint::PathPattern(ref pattern) => connections.push(pattern),
-            &Constraint::Expr(ref expr) => {
-                let name = exploreExpr((*expr).clone());
-                let mut new = false;
-                match selections.get_mut(&name) {
-                    Some(vec) => vec.push((*expr).clone()),
-                    None => new = true,
-                }
-                if new {
-                    selections.insert(name, vec![(*expr).clone()]);
-                }
-            },
-        }
-    }
-
-    let mut plans = HashMap::new();
-
-    for (name, filter) in selections {
-        let result = vertices.filter(move |x| {
-            check_node(&x, &filter)
-        });
-        plans.insert(name, result);
-    }
-
-    let mut result1;
-    for connection in connections {
-        let sources = match plans.get(&connection.source.name){
-            None => vertices,
-            Some(list) => list,
-        };
-
-        let targets = match plans.get(&connection.target.name){
-            Some(list) => list,
-            None => vertices,
-        };
-            result1 =  sources.map(|x| (x.id, x)).join(edges)
-                        .map(|(k,v1,v2)| (v2,v1))
-                        .join(&targets.map(|x| (x.id, x)))
-                        .map(|(k,v1,v2)| (v1,v2));
-
-    result1.inspect(|x| println!("{:?}", x));
-        
-    }
+    
 
 /*
     let mut result = None;
