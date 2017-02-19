@@ -1557,7 +1557,12 @@ fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option
             )
         )
 }
+fn has_edge<G: Scope>(source: i32, target:i32, edges: &Collection<G, DifferentialEdge>) -> bool where G::Timestamp: Lattice {
+    true
+}
+
 fn test(s:&[u8]) -> i32{1}
+
 
 fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  queries: &Collection<G, String>,
     vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DifferentialEdge> where G::Timestamp: Lattice {
@@ -1589,7 +1594,7 @@ queries.inspect(move |&(ref x,_)| {
     let s = (*x).clone();
    query = test(s.as_bytes());
 });*/
-let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (x), v.ram < 5, u.ram > 10, w.ram > 30".as_bytes());
+let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (u), v.ram < 5, u.ram > 10, w.ram > 30".as_bytes());
 
 
 
@@ -1630,6 +1635,7 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (x), 
             let mut result = None;
             let mut counter = 0;
             for connection in connections {
+
                 if counter == 0 {
                     let sources = match plans.get(&connection.source.name){
                         None => vertices,
@@ -1647,9 +1653,11 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (x), 
                                     .map(|(k,v1,v2)| (k, vec![v1,v2])));
                 }
 
-                /*if counter == 2 {
-                    result = Some(result.unwrap())
-                }*/
+                else if counter == 2 {
+                    let left = 0;
+                    result = Some(result.unwrap().join(edges)
+                            .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[left].id == *id}).map(|(k,v1,v2)| (v2,v1)));
+                }
 
                 else {
                     let id = counter;
@@ -1658,7 +1666,7 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (x), 
                         Some(list) => list,
                         None => vertices,
                     };
-                    result =  Some(result.unwrap().map(move |(_,x)| (x[counter].id, x)).join(edges)
+                    result =  Some(result.unwrap().map(move |(_,vec)| (vec[counter].id, vec)).join(edges)
                                     .map(|(k,v1,v2)| (v2,v1))
                                     .join(&targets.map(|x| (x.id, x)))
                                     .map(|(k, mut v1,v2)| {v1.push(v2);(k,v1)}));
