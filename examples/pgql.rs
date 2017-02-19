@@ -17,6 +17,7 @@ use std::time::Instant;
 
 use timely::dataflow::*;
 use timely::dataflow::operators::*;
+use std::borrow::Borrow;
 
 use differential_dataflow::Collection;
 use differential_dataflow::operators::*;
@@ -522,7 +523,7 @@ pub struct DiffEdge{
     )
 );*/
 
-pub fn pgql_query(input: &[u8]) -> IResult<&[u8], Query> {
+named!(pgql_query<Query>, 
     do_parse!(
         select: select_clause >>
         space >>
@@ -530,7 +531,7 @@ pub fn pgql_query(input: &[u8]) -> IResult<&[u8], Query> {
         //opt!(solutionModifier),
         (Query { select: select, vvhere: vvhere})
     )
-}
+);
 
 //////////////////////////////
 //                          //
@@ -1561,24 +1562,34 @@ fn test(s:&[u8]) -> i32{1}
 fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  queries: &Collection<G, String>,
     vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DifferentialEdge> where G::Timestamp: Lattice {
 
-let constraints = &vec![Constraint::PathPattern(Connection{source : Vertex {name: "v".into(), anonymous: false, constraints: vec![]},
-
+/*let constraints = &vec![Constraint::PathPattern(
+    Connection{source : Vertex {name: "v".into(), anonymous: false, constraints: vec![]},
 target: Vertex {name: "u".into(), anonymous: false, constraints: vec![
-]}
-,
-edge: Edge { name: "".into(), inverted: false, constraints: vec![] }}),Constraint::Expr(
+]},edge: Edge { name: "".into(), inverted: false, constraints: vec![] }}),
+Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
 
-Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ram".into() })), Box::new(Expr::Literal(Literal::Float(50.0))))), Constraint::Expr(
+target: Vertex {name: "w".into(), anonymous: false, constraints: vec![
+]},
 
-Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "ram".into() })), Box::new(Expr::Literal(Literal::Float(10.0)))))
-];
+edge: Edge { name: "".into(), inverted: false, constraints: vec![] }}),
+Constraint::Expr(
+Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ram".into() })),
+    Box::new(Expr::Literal(Literal::Float(5.0))))),
+Constraint::Expr(
+Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "ram".into() })),
+    Box::new(Expr::Literal(Literal::Float(10.0))))),
+Constraint::Expr(
+Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "w".into(), variable: "ram".into() })),
+    Box::new(Expr::Literal(Literal::Float(30.0)))))
+];*/
 
+    
 /*let mut query = 1;
 queries.inspect(move |&(ref x,_)| {
     let s = (*x).clone();
    query = test(s.as_bytes());
 });*/
-let query = pgql_query("SELECT v.name WHERE (v) -> (u), v.ram < 5, u.ram > 10".as_bytes());
+let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (x), v.ram < 5, u.ram > 10, w.ram > 30".as_bytes());
 
 
 
@@ -1616,28 +1627,49 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), v.ram < 5, u.ram > 10".a
                 plans.insert(name, result);
             }
 
-            let mut result1;
+            let mut result = None;
+            let mut counter = 0;
             for connection in connections {
-                let sources = match plans.get(&connection.source.name){
-                    None => vertices,
-                    Some(list) => list,
-                };
+                if counter == 0 {
+                    let sources = match plans.get(&connection.source.name){
+                        None => vertices,
+                        Some(list) => list,
+                    };
+                    counter = counter + 1;
 
-                let targets = match plans.get(&connection.target.name){
-                    Some(list) => list,
-                    None => vertices,
-                };
-                    result1 =  sources.map(|x| (x.id, x)).join(edges)
-                                .map(|(k,v1,v2)| (v2,v1))
-                                .join(&targets.map(|x| (x.id, x)))
-                                .map(|(k,v1,v2)| (v1,v2));
+                    let targets = match plans.get(&connection.target.name){
+                        Some(list) => list,
+                        None => vertices,
+                    };
+                        result =  Some(sources.map(|x| (x.id, x)).join(edges)
+                                    .map(|(k,v1,v2)| (v2,v1))
+                                    .join(&targets.map(|x| (x.id, x)))
+                                    .map(|(k,v1,v2)| (k, vec![v1,v2])));
+                }
 
-            result1.inspect(|x| println!("{:?}", x));
+                /*if counter == 2 {
+                    result = Some(result.unwrap())
+                }*/
+
+                else {
+                    let id = counter;
+                    println!("\nCurrent counter {:?}\n", counter);
+                    let targets = match plans.get(&connection.target.name){
+                        Some(list) => list,
+                        None => vertices,
+                    };
+                    result =  Some(result.unwrap().map(move |(_,x)| (x[counter].id, x)).join(edges)
+                                    .map(|(k,v1,v2)| (v2,v1))
+                                    .join(&targets.map(|x| (x.id, x)))
+                                    .map(|(k, mut v1,v2)| {v1.push(v2);(k,v1)}));
+
+                    counter = counter + 1;                                    
+                }
                 
             }
-
-
+            result.unwrap().inspect(|x| println!("{:?}", x ));        
         }
+
         IResult::Error(value) => {
             match value {
                 Err::Position(parse, array) => {
