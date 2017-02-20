@@ -1,23 +1,13 @@
-
 #[macro_use]
 extern crate nom;
-extern crate rand;
+#[macro_use]
+extern crate abomonation_derive;
+extern crate abomonation;
 extern crate timely;
 extern crate differential_dataflow;
-#[macro_use]
-extern crate abomonation;
-#[macro_use] extern crate abomonation_derive;
-
-
-
-use abomonation::{encode, decode, Abomonation};
-
-use rand::{Rng, SeedableRng, StdRng};
-use std::time::Instant;
 
 use timely::dataflow::*;
 use timely::dataflow::operators::*;
-use std::borrow::Borrow;
 
 use differential_dataflow::Collection;
 use differential_dataflow::operators::*;
@@ -25,6 +15,8 @@ use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::Join;
 
 use nom::{IResult, space, alpha, digit, Err};
+
+use std::time::Instant;
 use std::str;
 use std::str::FromStr;
 use std::fmt::{self, Formatter, Display};
@@ -32,69 +24,15 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::error::Error;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::cmp::Ordering;
-use std::hash::{Hash, Hasher, SipHasher};
+use std::hash::{Hash, Hasher};
 
 //////////////////////////////
 //                          //
 //       TYPES GRAPH        //
 //                          //
 //////////////////////////////
-
-#[derive(Debug, Clone)]
-struct Plan {
-   operator: Op,
-
-   left: Option<Box<Plan> >,
-   right: Option<Box<Plan> >,
-
-
-   filter: Option<Vec<Expr> >,
-   join_left: Option<String>,
-   join_right: Option<String>,
-   //elation_names: Vec<String>,
-   map: Option<Attribute>,
-}
-#[derive(Debug,PartialEq,Clone)]
-enum Op {
-    Filter,
-    Map,
-    Join,
-}
-
-#[derive(Debug,PartialEq)]
-pub enum Constraint{
-    Expr(Expr),
-    PathPattern(Connection),
-}
-
-
-#[derive(Debug,PartialEq)]
-pub struct Connection {
-    source: Vertex,
-    target: Vertex,
-    edge: Edge,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Edge {
-    name: String,
-    inverted: bool,
-    constraints: Vec<Expr>,
-}
-
-#[derive(Debug,PartialEq)]
-pub struct Vertex {
-    name: String,
-    anonymous: bool,
-    constraints: Vec<Expr>,
-}
-
-#[derive(Debug)]
-pub struct Query {
-    select: Vec<Expr>,
-    vvhere: Vec<Constraint>,
-}
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expr {    
@@ -229,7 +167,7 @@ impl Literal {
         }
     }
 
-    fn greaterEq(&self, other: Literal) -> Literal {
+    fn greater_eq(&self, other: Literal) -> Literal {
         match other {
             Literal::Float(value) => {
                 match *self {
@@ -253,7 +191,7 @@ impl Literal {
         }
     }
 
-    fn smallerEq(&self, other: Literal) -> Literal {
+    fn smaller_eq(&self, other: Literal) -> Literal {
         match other {
             Literal::Float(value) => {
                 match *self {
@@ -315,6 +253,39 @@ impl Literal {
 //                          //
 //////////////////////////////
 
+#[derive(Debug)]
+pub struct Query {
+    select: Vec<Expr>,
+    vvhere: Vec<Constraint>,
+}
+
+#[derive(Debug,PartialEq)]
+pub enum Constraint{
+    Expr(Expr),
+    PathPattern(Connection),
+}
+
+
+#[derive(Debug,PartialEq)]
+pub struct Connection {
+    source: Vertex,
+    target: Vertex,
+    edge: Edge,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Edge {
+    name: String,
+    inverted: bool,
+    constraints: Vec<Expr>,
+}
+
+#[derive(Debug,PartialEq)]
+pub struct Vertex {
+    name: String,
+    anonymous: bool,
+    constraints: Vec<Expr>,
+}
 
 #[allow(dead_code)]
 pub struct PathExpr {
@@ -427,6 +398,35 @@ pub enum Aggregate {
 //                          //
 //////////////////////////////
 
+#[derive(Debug, Clone)]
+struct Plan {
+   operator: Op,
+
+   left: Option<Box<Plan> >,
+   right: Option<Box<Plan> >,
+
+
+   filter: Option<Vec<Expr> >,
+   join_left: Option<String>,
+   join_right: Option<String>,
+   //elation_names: Vec<String>,
+   map: Option<Attribute>,
+}
+#[derive(Debug,PartialEq,Clone)]
+enum Op {
+    Filter,
+    Map,
+    Join,
+}
+#[derive(Debug)]
+struct PhyPlan{
+    name: Vec<String>,
+    left: String,
+    right: String,
+    join_id: usize,
+    join: bool,
+    filter_id: usize,
+}
 
 #[derive(Debug, Clone, Abomonation)]
 pub struct DifferentialVertex{
@@ -1450,31 +1450,31 @@ fn main() {
 
 }
 
-fn exploreExpr(expr: Expr) -> String {
+fn explore_expr(expr: Expr) -> String {
     let mut result:String = "".into();
     match expr {
         Expr::Attribute(attribute)       => result.push_str(&attribute.name),
-        Expr::Equal(left, right)         => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},        
-        Expr::NotEqual(left, right)      => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Smaller(left, right)       => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::SmallerEq(left, right)     => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Greater(left, right)       => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::GreaterEq(left, right)     => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Like(left, right)          => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::And(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Or(left, right)            => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Not(value)                 => result.push_str(&exploreExpr(*value)),
-        Expr::Add(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Sub(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Mul(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Div(left, right)           => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
-        Expr::Modulo(left, right)        => {result.push_str(&exploreExpr(*left)); result.push_str(&exploreExpr(*right));},
+        Expr::Equal(left, right)         => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},        
+        Expr::NotEqual(left, right)      => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Smaller(left, right)       => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::SmallerEq(left, right)     => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Greater(left, right)       => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::GreaterEq(left, right)     => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Like(left, right)          => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::And(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Or(left, right)            => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Not(value)                 => result.push_str(&explore_expr(*value)),
+        Expr::Add(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Sub(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Mul(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Div(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Modulo(left, right)        => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
         _ => {}
     }
     result
 }
 
-fn transformAST (constraints: &Vec<Constraint>) -> Plan
+/*fn transformAST (constraints: &Vec<Constraint>) -> Plan
 {
 
     let mut selections: HashMap<String, Vec<Expr> > = HashMap::new();
@@ -1485,7 +1485,7 @@ fn transformAST (constraints: &Vec<Constraint>) -> Plan
         match constraint {
             &Constraint::PathPattern(ref pattern) => connections.push(pattern),
             &Constraint::Expr(ref expr) => {
-                let name = exploreExpr((*expr).clone());
+                let name = explore_expr((*expr).clone());
                 let mut new = false;
                 match selections.get_mut(&name) {
                     Some(vec) => vec.push((*expr).clone()),
@@ -1556,10 +1556,7 @@ fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option
                 }
             )
         )
-}
-fn has_edge<G: Scope>(source: i32, target:i32, edges: &Collection<G, DifferentialEdge>) -> bool where G::Timestamp: Lattice {
-    true
-}
+}*/
 
 fn test(s:&[u8]) -> i32{1}
 
@@ -1594,7 +1591,7 @@ queries.inspect(move |&(ref x,_)| {
     let s = (*x).clone();
    query = test(s.as_bytes());
 });*/
-let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (u), v.ram < 5, u.ram > 10, w.ram > 30".as_bytes());
+let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (v), v.ram < 5, u.ram > 10".as_bytes());
 
 
 
@@ -1610,7 +1607,7 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (u), 
                 match constraint {
                     &Constraint::PathPattern(ref pattern) => connections.push(pattern),
                     &Constraint::Expr(ref expr) => {
-                        let name = exploreExpr((*expr).clone());
+                        let name = explore_expr((*expr).clone());
                         let mut new = false;
                         match selections.get_mut(&name) {
                             Some(vec) => vec.push((*expr).clone()),
@@ -1632,7 +1629,103 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (u), 
                 plans.insert(name, result);
             }
 
+            let mut execution_plan = Vec::new();
+            let mut used_variables= HashSet::new();
+            let mut names = HashMap::new();
+            let mut ids :usize = 0;
+
+            for connection in connections {
+                if !used_variables.contains(&connection.source.name) {
+                    used_variables.insert(&connection.source.name);
+                    used_variables.insert(&connection.target.name);
+                    names.insert(&connection.source.name, ids);
+                    ids = ids + 1;
+                    names.insert(&connection.target.name, ids);
+                    ids = ids + 1;
+                    execution_plan.push(
+                        PhyPlan{ 
+                            name: vec![connection.source.name.clone(), connection.target.name.clone()],
+                            left: connection.source.name.clone(),
+                            right: connection.target.name.clone(),
+                            join_id: 0,
+                            join: true,
+                            filter_id: 100,
+                        }
+                    );
+                }
+                else if !used_variables.contains(&connection.target.name) {
+                    used_variables.insert(&connection.target.name);
+                    names.insert(&connection.target.name, ids);
+                    ids = ids + 1;
+                    execution_plan.push(
+                        PhyPlan{ 
+                            name: vec![connection.source.name.clone(), connection.target.name.clone()],
+                            left: connection.source.name.clone(),
+                            right: connection.target.name.clone(),
+                            join_id: *names.get(&connection.source.name).unwrap(),
+                            join: true,
+                            filter_id: 100,
+                        }
+                    );
+                }
+                else {
+                    execution_plan.push(
+                        PhyPlan{ 
+                            name: vec![connection.source.name.clone(), connection.target.name.clone()],
+                            left: connection.source.name.clone(),
+                            right: connection.target.name.clone(),
+                            join_id: *names.get(&connection.source.name).unwrap(),
+                            join: false,
+                            filter_id: *names.get(&connection.target.name).unwrap(),
+                        }
+                    );
+                }
+
+            }
+            //println!("{:?}", execution_plan);
             let mut result = None;
+            for step in execution_plan {
+                
+                if step.join && step.join_id == 0 {
+                    let sources = match plans.get(&step.left){
+                        None => vertices,
+                        Some(list) => list,
+                    };
+
+                    let targets = match plans.get(&step.right){
+                        Some(list) => list,
+                        None => vertices,
+                    };
+                        result =  Some(sources.map(|x| (x.id, x)).join(edges)
+                                    .map(|(k,v1,v2)| (v2,v1))
+                                    .join(&targets.map(|x| (x.id, x)))
+                                    .map(|(k,v1,v2)| vec![v1,v2]));
+                }
+                else if !step.join {
+                    let int = step.join_id;
+                    let int2 = step.filter_id;
+                    result = Some(result.unwrap().map(move |x| (x[int].id, x))
+                            .join(edges)
+                            .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[int2].id == *id})
+                            .map(|(k,v1,v2)| v1));
+
+                }
+                else {                 
+                    let targets = match plans.get(&step.right){
+                        Some(list) => list,
+                        None => vertices,
+                    };
+                    result = Some(result.unwrap().map(move |vec| (vec[step.join_id].id, vec))
+                            .join(edges)
+                            .map(|(k,v1,v2)| (v2,v1))
+                            .join(&targets.map(|x| (x.id, x)))
+                            .map(|(k, mut v1,v2)| {v1.push(v2);v1}));   
+                }
+            }
+            result.unwrap().inspect(|x| println!("{:?}", x ));
+
+
+            /*let mut result = None;
             let mut counter = 0;
             for connection in connections {
 
@@ -1675,7 +1768,7 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (u), 
                 }
                 
             }
-            result.unwrap().inspect(|x| println!("{:?}", x ));        
+            result.unwrap().inspect(|x| println!("{:?}", x )); */       
         }
 
         IResult::Error(value) => {
@@ -1723,9 +1816,8 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (u), 
             }*/
 
     edges.filter(|x| {
-        let &(ref source, ref target) = x;
         true
-        //(roots.contains(source) && destinations.contains(target))
+        //let &(ref source, ref target) = x;
     })
 }
 
@@ -1748,9 +1840,9 @@ fn evaluate_expr (constraint: Expr, node: &Node) -> Literal {
         Expr::Equal(left, right)         => Literal::Boolean(evaluate_expr(*left, node) == evaluate_expr(*right, node)),
         Expr::NotEqual(left, right)      => Literal::Boolean(evaluate_expr(*left, node) != evaluate_expr(*right, node)),
         Expr::Smaller(left, right)       => evaluate_expr(*left, node).smaller(evaluate_expr(*right, node)),
-        Expr::SmallerEq(left, right)     => evaluate_expr(*left, node).smallerEq(evaluate_expr(*right, node)),
+        Expr::SmallerEq(left, right)     => evaluate_expr(*left, node).smaller_eq(evaluate_expr(*right, node)),
         Expr::Greater(left, right)       => evaluate_expr(*left, node).greater(evaluate_expr(*right, node)),
-        Expr::GreaterEq(left, right)     => evaluate_expr(*left, node).greaterEq(evaluate_expr(*right, node)),
+        Expr::GreaterEq(left, right)     => evaluate_expr(*left, node).greater_eq(evaluate_expr(*right, node)),
         Expr::Like(left, right)          => evaluate_expr(*left, node).contains(evaluate_expr(*right, node)),
         Expr::And(left, right)           => evaluate_expr(*left, node).and(evaluate_expr(*right, node)),
         Expr::Or(left, right)            => evaluate_expr(*left, node).or(evaluate_expr(*right, node)),
