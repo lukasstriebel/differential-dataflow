@@ -34,7 +34,7 @@ use std::hash::{Hash, Hasher};
 //                          //
 //////////////////////////////
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Abomonation)]
 pub enum Expr {    
     Attribute  (Attribute),
     Literal    (Literal),
@@ -57,7 +57,7 @@ pub enum Expr {
 }
 
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Abomonation)]
 pub struct Attribute { 
     name: String,
     variable: String,
@@ -253,41 +253,41 @@ impl Literal {
 //                          //
 //////////////////////////////
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Abomonation)]
 pub struct Query {
     select: Vec<Expr>,
     vvhere: Vec<Constraint>,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq, Clone, Abomonation)]
 pub enum Constraint{
     Expr(Expr),
     PathPattern(Connection),
 }
 
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq, Clone, Abomonation)]
 pub struct Connection {
     source: Vertex,
     target: Vertex,
     edge: Edge,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Abomonation)]
 pub struct Edge {
     name: String,
     inverted: bool,
     constraints: Vec<Expr>,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq, Clone, Abomonation)]
 pub struct Vertex {
     name: String,
     anonymous: bool,
     constraints: Vec<Expr>,
 }
 
-#[allow(dead_code)]
+#[derive(Clone, Abomonation)]
 pub struct PathExpr {
     source: Vertex,
     target: Vertex,
@@ -296,13 +296,13 @@ pub struct PathExpr {
     max_occ: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone,Abomonation)]
 pub enum QueryConnection {
     Edge(Edge),
     Path(RegularPath),
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone,Abomonation)]
 pub struct RepeatablePath {
     min: i32,
     max: i32,
@@ -310,7 +310,7 @@ pub struct RepeatablePath {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug,Clone, Abomonation)]
 pub enum RegularPath {
     Predefined(String),
     Alternative(Box<RegularPath>,Box<RegularPath>),
@@ -1383,6 +1383,9 @@ fn main() {
             (edge_input, query_input, vertex_input, probe)
         });
 
+
+
+
         if computation.index() == 0 { // this block will be executed by worker/thread 0
             
             let mut file = File::open(&graph_filepath).unwrap();
@@ -1405,8 +1408,11 @@ fn main() {
                                                            error.description()),
                 Ok(_) => println!("Query File {} successfully opened\n", query_filepath),
             }
-            query.send((query_string,1));
-
+            match pgql_query(query_string.as_bytes()) {
+                IResult::Done(_, value) => 
+            query.send((value,1)),
+            _ => panic!("error while parsing")
+            }
 
             match result {
                 IResult::Done(_, value) => {
@@ -1561,52 +1567,38 @@ fn create_join ( left: Option<Box<Plan> >, right: Option<Box<Plan> > ) -> Option
 fn test(s:&[u8]) -> i32{1}
 
 
-fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  queries: &Collection<G, String>,
+fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  queries: &Collection<G, Query>,
     vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DifferentialEdge> where G::Timestamp: Lattice {
 
-/*let constraints = &vec![Constraint::PathPattern(
-    Connection{source : Vertex {name: "v".into(), anonymous: false, constraints: vec![]},
-target: Vertex {name: "u".into(), anonymous: false, constraints: vec![
-]},edge: Edge { name: "".into(), inverted: false, constraints: vec![] }}),
-Constraint::PathPattern(Connection{source : Vertex {name: "u".into(), anonymous: false, constraints: vec![]},
+//let mut query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (v), w.ram > 30, v.ram < 5, u.ram > 10".as_bytes());
 
-target: Vertex {name: "w".into(), anonymous: false, constraints: vec![
-]},
+//let mut queries_vec = Vec::new();// = 1;
+//queries.inner.map(|(x,_)| {
 
-edge: Edge { name: "".into(), inverted: false, constraints: vec![] }}),
-Constraint::Expr(
-Expr::Smaller(Box::new(Expr::Attribute(Attribute { name: "v".into(), variable: "ram".into() })),
-    Box::new(Expr::Literal(Literal::Float(5.0))))),
-Constraint::Expr(
-Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "u".into(), variable: "ram".into() })),
-    Box::new(Expr::Literal(Literal::Float(10.0))))),
-Constraint::Expr(
-Expr::Greater(Box::new(Expr::Attribute(Attribute { name: "w".into(), variable: "ram".into() })),
-    Box::new(Expr::Literal(Literal::Float(30.0)))))
-];*/
+    //query = pgql_query(x.as_bytes()); //.inspect(move |x| {
+    //let s = (*x).clone();
+    //queries_vec.push(pgql_query(x.clone().as_bytes()));
+    //let query = pgql_query(x.clone().as_bytes());
+//});
 
-    
-/*let mut query = 1;
-queries.inspect(move |&(ref x,_)| {
-    let s = (*x).clone();
-   query = test(s.as_bytes());
-});*/
-let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (v), v.ram < 5, u.ram > 10".as_bytes());
+//let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (w), (w) -> (u), w.ram > 30, v.ram < 5, u.ram > 10".as_bytes());
+
+    //for query in queries_vec {
+
+      //match query {
+        //IResult::Done(_, value) => {
 
 
+        queries.inspect(|&(x,_)| {
+        
 
-    /*let mut string = String::new();
-    queries.inspect(move |&(ref x,_)| {string = x.clone(); s_slice = &string[..];});
-    let query = pgql_query("SELECT v.name WHERE (v) -> (u), v.ram < 5, u.ram > 10".as_bytes());*/
-    match query {
-        IResult::Done(_, value) => {
             let mut connections = Vec::new();
             let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
 
-            for constraint in &value.vvhere{
+            for constraint in x.vvhere{
                 match constraint {
-                    &Constraint::PathPattern(ref pattern) => connections.push(pattern),
-                    &Constraint::Expr(ref expr) => {
+                    Constraint::PathPattern(ref pattern) => connections.push(pattern),
+                    Constraint::Expr(ref expr) => {
                         let name = explore_expr((*expr).clone());
                         let mut new = false;
                         match selections.get_mut(&name) {
@@ -1722,56 +1714,10 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (v), v.ram < 5, u
                             .map(|(k, mut v1,v2)| {v1.push(v2);v1}));   
                 }
             }
-            result.unwrap().inspect(|x| println!("{:?}", x ));
+            result.unwrap().inspect(|x| println!("{:?}", x ));      
+        });
 
-
-            /*let mut result = None;
-            let mut counter = 0;
-            for connection in connections {
-
-                if counter == 0 {
-                    let sources = match plans.get(&connection.source.name){
-                        None => vertices,
-                        Some(list) => list,
-                    };
-                    counter = counter + 1;
-
-                    let targets = match plans.get(&connection.target.name){
-                        Some(list) => list,
-                        None => vertices,
-                    };
-                        result =  Some(sources.map(|x| (x.id, x)).join(edges)
-                                    .map(|(k,v1,v2)| (v2,v1))
-                                    .join(&targets.map(|x| (x.id, x)))
-                                    .map(|(k,v1,v2)| (k, vec![v1,v2])));
-                }
-
-                else if counter == 2 {
-                    let left = 0;
-                    result = Some(result.unwrap().join(edges)
-                            .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[left].id == *id}).map(|(k,v1,v2)| (v2,v1)));
-                }
-
-                else {
-                    let id = counter;
-                    println!("\nCurrent counter {:?}\n", counter);
-                    let targets = match plans.get(&connection.target.name){
-                        Some(list) => list,
-                        None => vertices,
-                    };
-                    result =  Some(result.unwrap().map(move |(_,vec)| (vec[counter].id, vec)).join(edges)
-                                    .map(|(k,v1,v2)| (v2,v1))
-                                    .join(&targets.map(|x| (x.id, x)))
-                                    .map(|(k, mut v1,v2)| {v1.push(v2);(k,v1)}));
-
-                    counter = counter + 1;                                    
-                }
-                
-            }
-            result.unwrap().inspect(|x| println!("{:?}", x )); */       
-        }
-
-        IResult::Error(value) => {
+        /*IResult::Error(value) => {
             match value {
                 Err::Position(parse, array) => {
                     println!("{:?} Parser failed\n", parse);
@@ -1781,31 +1727,10 @@ let query = pgql_query("SELECT v.name WHERE (v) -> (u), (u) -> (v), v.ram < 5, u
             }
 
         }
-        _ => println!("{:?}", query)
+        _ => println!("{:?}", query)*/
     
-    };
+    //};
     
-    
-
-/*
-    let mut result = None;
-
-    for connection in connections {
-        //let name = vec![left, right];
-        let left: Option<Box<Plan> > = match plans.get(&connection.source.name){
-            Some(plan) => (*plan).clone(),
-            None => None,
-        };
-
-        let right: Option<Box<Plan> > = match plans.get(&connection.target.name){
-            Some(plan) => (*plan).clone(),
-            None => None,
-        };
-        
-        result = create_join(left, right);
-    }*/
-
-
     /*let project = vec![Expr::Attribute(Attribute{name:"v".into(), variable:"name".into()}),
                      Expr::Attribute(Attribute{name:"v".into(), variable:"age".into()})];
 
