@@ -1,0 +1,1 @@
+SELECT * WHERE (u) -> (v), (v) -> (w), v.position = 'core', u.name =~ 'Switch', w.position = 'access'

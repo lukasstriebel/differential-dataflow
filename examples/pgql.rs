@@ -28,6 +28,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
+use std::cell::RefCell;
 
 //////////////////////////////
 //                          //
@@ -61,7 +62,7 @@ pub enum Expr {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Attribute { 
     name: String,
-    variable: String,
+    field: String,
 }
 
 
@@ -256,8 +257,15 @@ impl Literal {
 
 #[derive(Debug)]
 pub struct Query {
-    select: Vec<Expr>,
+    select: Vec<SelectElem>,
     vvhere: Vec<Constraint>,
+}
+
+#[derive(Debug,PartialEq)]
+pub enum SelectElem {
+    Star,
+    Aggregation(Aggregate),
+    Attribute(Attribute),
 }
 
 #[derive(Debug,PartialEq)]
@@ -436,6 +444,19 @@ pub struct DifferentialVertex{
     attribute_values: Vec<(String, Literal)>,
 }
 
+impl DifferentialVertex{
+    fn get(&self, attribute: &String) -> Option<&Literal>{        
+        let mut result = None;
+        for pair in &self.attribute_values {
+            let &(ref key, ref value) = pair;
+            if key.clone() == attribute.clone(){
+                result = Some(value);
+            }
+        }
+        (result)
+    }
+}
+
 impl From<Node> for DifferentialVertex {
     fn from(data: Node) -> Self {
         DifferentialVertex {
@@ -513,24 +534,26 @@ pub struct DiffEdge{
 //////////////////////////////
 
 
-
-/*named!(pgql_query<Query>,
+/*
+named!(pgql_query_complete<Query>,
     chain!(
+        paths: paths ~
+        space ~
         select: select_clause ~
         space ~
-        vvhere: where_clause ,
-        //opt!(solutionModifier),
-        || Query { select: select, vvhere: vvhere}
+        vvhere: where_clause  ~
+        space ~     
+        opt!(sol_mod: solution_modifier),
+        || Query { select: select, vvhere: vvhere, sol_mod: sol_mod, paths: paths}
     )
 );*/
 
-named!(pgql_query<Query>, 
+named!(pgql_query<(Vec<SelectElem>, Vec<Constraint>)>, 
     do_parse!(
         select: select_clause >>
         space >>
         vvhere: where_clause >>
-        //opt!(solutionModifier),
-        (Query { select: select, vvhere: vvhere})
+        (select, vvhere)
     )
 );
 
@@ -541,7 +564,7 @@ named!(pgql_query<Query>,
 //////////////////////////////
 
 
-named!(select_clause<Vec<Expr> >,
+named!(select_clause<Vec<SelectElem> >,
     chain!( 
         tag_no_case_s!("select") ~
         space ~
@@ -551,24 +574,24 @@ named!(select_clause<Vec<Expr> >,
 );
 
 
-named!(select_elems<Vec<Expr> >,
+named!(select_elems<Vec<SelectElem> >,
     many1!(
         alt_complete!(
-            /*aggregate => {|aggregation| 
-                        Expr::Aggregation(aggregation)} |*/
+            aggregate => {|aggregation| 
+                        SelectElem::Aggregation(aggregation)} |
             do_parse!(
-                v: variable_name >>
+                v: field_name >>
                 char!(',') >>
                 opt!(space) >> ({
-                    let (name, variable) = v;
-                        let a = Attribute{name: name, variable: variable};
-                        Expr::Attribute(a)})
+                    let (name, field) = v;
+                        let a = Attribute{name: name, field: field};
+                        SelectElem::Attribute(a)})
             )  
-            | variable_name => {|v| {let (name, variable) = v;
-                        let a = Attribute{name: name, variable: variable};
-                        Expr::Attribute(a)}}
+            | field_name => {|v| {let (name, field) = v;
+                        let a = Attribute{name: name, field: field};
+                        SelectElem::Attribute(a)}}
            
-            //| tag_s!("*")
+            | tag_s!("*") => {|_| SelectElem::Star}
         )
     )    
 );
@@ -864,10 +887,10 @@ named!(expressions<Vec<Expr> >,
         opt!(space) >>
         a: alt!(
                 literal => {|l| Expr::Literal(l) } |
-                variable_name => {
+                field_name => {
                     |v| {
-                        let (name, variable) = v;
-                        let a = Attribute{name: name, variable: variable};
+                        let (name, field) = v;
+                        let a = Attribute{name: name, field: field};
                         Expr::Attribute(a) 
                     }
                 }
@@ -886,10 +909,10 @@ named!(expressions<Vec<Expr> >,
 named!(operand<Expr>,
         alt!(
                 literal => {|l| Expr::Literal(l) } |
-                variable_name => {
+                field_name => {
                     |value| {
-                        let (name, variable) = value;
-                        let attribute = Attribute{name: name, variable: variable};
+                        let (name, field) = value;
+                        let attribute = Attribute{name: name, field: field};
                         Expr::Attribute(attribute) 
                     }
                 }
@@ -955,46 +978,46 @@ named!(aggregate<Aggregate>,
     alt_complete!(
         do_parse!(
             tag_no_case_s!("count") >>
-            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
             ({
-                let (name, variable) = variable_name;
-                let attribute = Attribute{name: name, variable: variable};
+                let (name, field) = field_name;
+                let attribute = Attribute{name: name, field: field};
                 Aggregate::Count(attribute)
             })
             ) |
         do_parse!(
             tag_no_case_s!("min") >>
-            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
             ({
-                let (name, variable) = variable_name;
-                let attribute = Attribute{name: name, variable: variable};
+                let (name, field) = field_name;
+                let attribute = Attribute{name: name, field: field};
                 Aggregate::Min(attribute)
             })
             ) |
         do_parse!(
             tag_no_case_s!("max") >>
-            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
             ({
-                let (name, variable) = variable_name;
-                let attribute = Attribute{name: name, variable: variable};
+                let (name, field) = field_name;
+                let attribute = Attribute{name: name, field: field};
                 Aggregate::Max(attribute)
             })
             ) |
         do_parse!(
             tag_no_case_s!("sum") >>
-            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
             ({
-                let (name, variable) = variable_name;
-                let attribute = Attribute{name: name, variable: variable};
+                let (name, field) = field_name;
+                let attribute = Attribute{name: name, field: field};
                 Aggregate::Sum(attribute)
             })
             ) |
         do_parse!(
             tag_no_case_s!("avg") >>
-            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
+            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
             ({
-                let (name, variable) = variable_name;
-                let attribute = Attribute{name: name, variable: variable};
+                let (name, field) = field_name;
+                let attribute = Attribute{name: name, field: field};
                 Aggregate::Avg(attribute)
             })
             ) 
@@ -1128,7 +1151,7 @@ named!(group_by<GroupBy>,
 //////////////////////////////
 
 
-named!(variable_name<(String,String)>,
+named!(field_name<(String,String)>,
     alt_complete!(            
             chain!(
                 name: char_only ~
@@ -1359,91 +1382,93 @@ impl Display for Graph
 
 fn main() { 
 
-    let graph_filepath: String = std::env::args().nth(1).unwrap();
+    let graph_filepath: RefCell<String>= RefCell::new(std::env::args().nth(2).unwrap());
     let query_filepath: String = std::env::args().nth(2).unwrap();
-
-    
 
     //Parse the Query
     let mut file = File::open(&query_filepath).unwrap();
     let mut reader = BufReader::new(&file);
+    let s:String="test".into(); 
 
     for line in reader.lines() {
 
-    let query = line.unwrap();
+        let query = line.unwrap();
 
-    // define a new computational scope, in which to run the query
-    timely::execute_from_args(std::env::args().skip(2), move |computation| {
+        // define a new computational scope, in which to run the query
+        timely::execute_from_args(std::env::args().skip(2), move |computation| {
 
-        let timer = Instant::now();
+            let timer = Instant::now();
 
-        // logic goes here
-        let (mut edges, mut vertices, probe) = computation.scoped(|scope| {
+            // logic goes here
+            let (mut edges, mut vertices, probe) = computation.scoped(|scope| {
 
-            // handle to push edges into the system
-            let (vertex_input, vertices) = scope.new_input();
+                // handle to push edges into the system
+                let (vertex_input, vertices) = scope.new_input();
 
-            // handle to push edges into the system
-            let (edge_input, edges) = scope.new_input();
+                // handle to push edges into the system
+                let (edge_input, edges) = scope.new_input();
 
-            let (probe, output) = evaluate(&Collection::new(edges), &query, &Collection::new(vertices)).probe();
-            (edge_input, vertex_input, probe)
-        });
-        
-        if computation.index() == 0 { // this block will be executed by worker/thread 0
+                let (probe, output) = evaluate(&Collection::new(edges), &query, &Collection::new(vertices)).probe();
+                (edge_input, vertex_input, probe)
+            });
+            
+            if computation.index() == 0 { // this block will be executed by worker/thread 0
 
-            // Load the Graph
-    //let mut file2 = File::open(&graph_filepath).unwrap();
-    let mut file2 = File::open("graph.txt").unwrap();
-    let mut string = String::new();
-     
-    match file2.read_to_string(&mut string) {
-        Err(error) => panic!("Couldn't read file {}: {}", "graph_filepath",
-                                                   error.description()),
-        Ok(_) => println!("Graph File {} successfully opened\n", "graph_filepath"),
-    }
-    
-    let result = graph_parser(&string.as_bytes());
-
-            match result {
-                IResult::Done(_, value) => {
-                    
-                    for elem in value.nodes{
-                        vertices.send((elem.into(),1));
-                    }
-
-                    for elem in value.edges{
-                        edges.send(((elem.source,elem.target),1));
-                    }
+                let timer2 = Instant::now();
+                
+                // Load the Graph
+                //let mut file2 = File::open(&graph_filepath.into_inner()).unwrap();
+                let mut file2 = File::open("graph_fat.txt").unwrap();
+                let mut string = String::new();
+                 
+                match file2.read_to_string(&mut string) {
+                    Err(error) => panic!("Couldn't read file {}: {}", "graph_filepath",
+                                                               error.description()),
+                    Ok(_) => println!("Graph File {} successfully opened\n", "graph_filepath"),
                 }
+                
+                let result = graph_parser(&string.as_bytes());
 
-                IResult::Error( value) => {
-                    match value {
-                        Err::Position(parse, array) => {
-                            println!("{:?} Parser failed\n", parse);
-                            println!("Remaining Input: {:?}", std::str::from_utf8(array));
+                match result {
+                    IResult::Done(_, value) => {
+                        
+                        for elem in value.nodes{
+                            vertices.send((elem.into(),1));
                         }
-                        _ => println!("{:?}",value)
+
+                        for elem in value.edges{
+                            edges.send(((elem.source,elem.target),1));
+                        }
                     }
+
+                    IResult::Error( value) => {
+                        match value {
+                            Err::Position(parse, array) => {
+                                println!("{:?} Parser failed\n", parse);
+                                println!("Remaining Input: {:?}", std::str::from_utf8(array));
+                            }
+                            _ => println!("{:?}",value)
+                        }
+                    }
+                    _ => println!("Failed to parse the Graph")
                 }
-                _ => println!("Failed to parse the Graph")
+                println!("Graph Loading took {:?}", timer2.elapsed());
             }
-        }
-
-        // advance epoch
-        edges.advance_to(1);
-        vertices.advance_to(1);
-        // do the job
-        computation.step_while(|| probe.lt(edges.time()));
 
 
-        if computation.index() == 0 {
-            println!("stable; elapsed: {:?}", timer.elapsed());
-        }
+            // advance epoch
+            edges.advance_to(1);
+            vertices.advance_to(1);
+            // do the job
+            computation.step_while(|| probe.lt(edges.time()));
 
-    }).unwrap();
-}
 
+            if computation.index() == 0 {
+                println!("stable; elapsed: {:?}", timer.elapsed());
+            }
+
+        }).unwrap();
+    }
 
 }
 
@@ -1478,11 +1503,11 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
     let query = pgql_query(query_string.as_bytes());
     let timer = Instant::now();
     match query {
-        IResult::Done(_, value) => {
+        IResult::Done(_, (select,vvhere)) => {
             let mut connections = Vec::new();
             let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
 
-            for constraint in &value.vvhere{
+            for constraint in &vvhere{
                 match constraint {
                     &Constraint::PathPattern(ref pattern) => connections.push(pattern),
                     &Constraint::Expr(ref expr) => {
@@ -1509,14 +1534,14 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
             }
 
             let mut execution_plan = Vec::new();
-            let mut used_variables= HashSet::new();
+            let mut used_fields= HashSet::new();
             let mut names = HashMap::new();
             let mut ids :usize = 0;
 
             for connection in connections {
-                if !used_variables.contains(&connection.source.name) {
-                    used_variables.insert(&connection.source.name);
-                    used_variables.insert(&connection.target.name);
+                if !used_fields.contains(&connection.source.name) {
+                    used_fields.insert(&connection.source.name);
+                    used_fields.insert(&connection.target.name);
                     names.insert(&connection.source.name, ids);
                     ids = ids + 1;
                     names.insert(&connection.target.name, ids);
@@ -1532,8 +1557,8 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                         }
                     );
                 }
-                else if !used_variables.contains(&connection.target.name) {
-                    used_variables.insert(&connection.target.name);
+                else if !used_fields.contains(&connection.target.name) {
+                    used_fields.insert(&connection.target.name);
                     names.insert(&connection.target.name, ids);
                     ids = ids + 1;
                     execution_plan.push(
@@ -1561,78 +1586,107 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                 }
 
             }
-            let mut result = None;
-            for step in execution_plan {
-                
-                if step.join && step.join_id == 0 {
-                    let sources = match plans.get(&step.left){
-                        None => vertices,
-                        Some(list) => list,
-                    };
+            if execution_plan.len() == 0 {
+                for projection in &select{
+                                match projection {
+                                    &SelectElem::Star => {for (ref key,ref plan) in &plans {
+                                        plan.inspect(|&(ref x,_)| println!("{:?}", x));
+                                    }
+                                },
+                                    &SelectElem::Attribute(ref attr) => {//let id = names.get(&attr.name).unwrap();
+                                        //println!("{:?}", plans.get(&attr.field).unwrap() );
+                                    },
+                                    &SelectElem::Aggregation(ref aggr) => {println!("{:?} not yet supported", aggr );},
+                                }
+                            }
 
-                    let targets = match plans.get(&step.right){
-                        Some(list) => list,
-                        None => vertices,
-                    };
-                        result =  Some(sources.map(|x| (x.id, x)).join(edges)
-                                    .map(|(_,v1,v2)| (v2,v1))
-                                    .join(&targets.map(|x| (x.id, x)))
-                                    .map(|(_,v1,v2)| vec![v1,v2]));
-                }
-                else if !step.join {
-                    let int = step.join_id;
-                    let int2 = step.filter_id;
-                    result = Some(result.unwrap().map(move |x| (x[int].id, x))
-                            .join(edges)
-                            .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[int2].id == *id})
-                            .map(|(_,v1,_)| v1));
-
-                }
-                else {                 
-                    let targets = match plans.get(&step.right){
-                        Some(list) => list,
-                        None => vertices,
-                    };
-                    result = Some(result.unwrap().map(move |vec| (vec[step.join_id].id, vec))
-                            .join(edges)
-                            .map(|(_,v1,v2)| (v2,v1))
-                            .join(&targets.map(|x| (x.id, x)))
-                            .map(|(_, mut v1,v2)| {v1.push(v2);v1}));   
-                }
-            }
-            match result {
-                Some(list) => {
-                    println!("Your Query {} returned the following result:\n", query_string);
-                    list.inspect(|x| println!("{:?}", x ));
-                    println!("Evaluation took: {:?}\n\n", timer.elapsed());;
-                },
-                None => {println!("No vertices match your criteria");},
-            }    
-        }
-
-        IResult::Error(value) => {
-            match value {
-                Err::Position(parse, array) => {
-                    println!("{:?} Parser failed\n", parse);
-                    println!("Remaining Input: {:?}", std::str::from_utf8(array));
-                }
-                _ => println!("{:?}",value)
+                        println!("Evaluation took: {:?}\n\n", timer.elapsed());;
             }
 
+            else{
+                let mut result = None;
+                for step in execution_plan {
+                    
+                    if step.join && step.join_id == 0 {
+                        let sources = match plans.get(&step.left){
+                            None => vertices,
+                            Some(list) => list,
+                        };
+
+                        let targets = match plans.get(&step.right){
+                            Some(list) => list,
+                            None => vertices,
+                        };
+                            result =  Some(sources.map(|x| (x.id, x)).join(edges)
+                                        .map(|(_,v1,v2)| (v2,v1))
+                                        .join(&targets.map(|x| (x.id, x)))
+                                        .map(|(_,v1,v2)| vec![v1,v2]));
+                    }
+                    else if !step.join {
+                        let int = step.join_id;
+                        let int2 = step.filter_id;
+                        result = Some(result.unwrap().map(move |x| (x[int].id, x))
+                                .join(edges)
+                                .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[int2].id == *id})
+                                .map(|(_,v1,_)| v1));
+
+                    }
+                    else {                 
+                        let targets = match plans.get(&step.right){
+                            Some(list) => list,
+                            None => vertices,
+                        };
+                        result = Some(result.unwrap().map(move |vec| (vec[step.join_id].id, vec))
+                                .join(edges)
+                                .map(|(_,v1,v2)| (v2,v1))
+                                .join(&targets.map(|x| (x.id, x)))
+                                .map(|(_, mut v1,v2)| {v1.push(v2);v1}));   
+                    }
+                }
+
+                match result {
+                    Some(list) => {
+                        println!("Your Query {} returned the following result:\n", query_string);
+                        list.inspect(move |&(ref x,_)| {
+                            for projection in &select{
+                                match projection {
+                                    &SelectElem::Star => {println!("{:?}", x );},
+                                    &SelectElem::Attribute(ref attr) => {//let id = names.get(&attr.name).unwrap();
+                                        println!("{:?}", x[0].get(&attr.field).unwrap() );},
+                                    &SelectElem::Aggregation(ref aggr) => {println!("{:?} not yet supported", aggr );},
+                                }
+                            }
+                        });
+                        println!("Evaluation took: {:?}\n\n", timer.elapsed());
+                    },
+                    None => {println!("No vertices match your criteria");},
+                }    
+            }
         }
-        _ => println!("{:?}", query)
-    
+
+            IResult::Error(value) => {
+                match value {
+                    Err::Position(parse, array) => {
+                        println!("{:?} Parser failed\n", parse);
+                        println!("Remaining Input: {:?}", std::str::from_utf8(array));
+                    }
+                    _ => println!("{:?}",value)
+                }
+
+            }
+            _ => println!("{:?}", query)            
+        
     }
 
-    /*let project = vec![Expr::Attribute(Attribute{name:"v".into(), variable:"name".into()}),
-                     Expr::Attribute(Attribute{name:"v".into(), variable:"age".into()})];
+    /*let project = vec![Expr::Attribute(Attribute{name:"v".into(), field:"name".into()}),
+                     Expr::Attribute(Attribute{name:"v".into(), field:"age".into()})];
 
     for attr in project {
             match attr {
-                Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.variable)),
+                Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.field)),
                 _ => println!("failure")
             }*/
-
+    
     edges.filter(|x| {
         true
         //let &(ref source, ref target) = x;
@@ -1673,9 +1727,11 @@ fn evaluate_expr (constraint: Expr, node: &Node) -> Literal {
         Expr::Modulo(left, right)        => evaluate_expr(*left, node).modulo(evaluate_expr(*right, node)),
         Expr::Literal(value)             => value,
         Expr::Attribute(attribute)       => {
-            match node.attribute_values.get(&attribute.variable) {
+            match node.attribute_values.get(&attribute.field) {
                 Some(literal) => (*literal).clone(),
-                None => panic!("Field {:?} does not exist!", &attribute.variable) }
+                None => Literal::Boolean(false),
+                //panic!("Field {:?} does not exist!", &attribute.field) 
+                }
             }
     }
 }
@@ -1712,30 +1768,30 @@ fn util_test() {
 fn query_test() {
     assert_eq!(pgql_query("select s.name where s.position = \"Access\"".as_bytes()), IResult::Done(&b""[..],
         Query{ 
-            select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()})],
+            select: vec![Expr::Attribute(Attribute{name:"s".into(), field:"name".into()})],
             vvhere: vec![
-                Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"position".into()})),
+                Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"s".into(), field:"position".into()})),
                 Box::new(Expr::Literal(Literal::Str("Access".into()))))
             ]}));
 
     assert_eq!(pgql_query("select s.name, s.status where s.age < 40".as_bytes()), IResult::Done(&b""[..],
         Query{ 
-            select: vec![Expr::Attribute(Attribute{name:"s".into(), variable:"name".into()}),
-                         Expr::Attribute(Attribute{name:"s".into(), variable:"status".into()})],
+            select: vec![Expr::Attribute(Attribute{name:"s".into(), field:"name".into()}),
+                         Expr::Attribute(Attribute{name:"s".into(), field:"status".into()})],
             vvhere: vec![
-                Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), variable:"age".into()})),
+                Expr::Smaller(Box::new(Expr::Attribute(Attribute{name:"s".into(), field:"age".into()})),
                 Box::new(Expr::Literal(Literal::Integer(40))))
             ]}));
 
     assert_eq!(pgql_query("select n.name, m.name where (n) -[e with e.type = \"Hosting\"]-> (m)".as_bytes()), IResult::Done(&b""[..],
         Query{ 
-            select: vec![Expr::Attribute(Attribute{name:"n".into(), variable:"name".into()}),
-                         Expr::Attribute(Attribute{name:"m".into(), variable:"name".into()})],
+            select: vec![Expr::Attribute(Attribute{name:"n".into(), field:"name".into()}),
+                         Expr::Attribute(Attribute{name:"m".into(), field:"name".into()})],
             vvhere: vec![Expr::PathPattern(Connection{
                 source: Vertex{name:"n".into(), anonymous:false, constraints: vec![]},
                 target: Vertex{name:"m".into(), anonymous:false, constraints: vec![]},
                 edge: Edge{name:"e".into(), inverted: false, constraints: vec![
-                    Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"e".into(), variable:"type".into()})),
+                    Expr::Equal(Box::new(Expr::Attribute(Attribute{name:"e".into(), field:"type".into()})),
                     Box::new(Expr::Literal(Literal::Str("Hosting".into()))))
                     ]}})]
             }));
