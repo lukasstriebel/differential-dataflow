@@ -162,10 +162,10 @@ impl Literal {
             Literal::Float(value) => {
                 match *self {
                     Literal::Float(ownvalue) => Literal::Boolean(value < ownvalue),
-                    _ => panic!("Greater with non arithmetic value")
+                    _ => panic!("Greater with own non arithmetic value")
                 }
             },
-             _ => panic!("Greater with non arithmetic value") 
+             _ => panic!("Greater with other non arithmetic value") 
         }
     }
 
@@ -407,26 +407,6 @@ pub enum Aggregate {
 //                          //
 //////////////////////////////
 
-#[derive(Debug, Clone)]
-struct Plan {
-   operator: Op,
-
-   left: Option<Box<Plan> >,
-   right: Option<Box<Plan> >,
-
-
-   filter: Option<Vec<Expr> >,
-   join_left: Option<String>,
-   join_right: Option<String>,
-   //elation_names: Vec<String>,
-   map: Option<Attribute>,
-}
-#[derive(Debug,PartialEq,Clone)]
-enum Op {
-    Filter,
-    Map,
-    Join,
-}
 #[derive(Debug)]
 struct PhyPlan{
     name: Vec<String>,
@@ -435,6 +415,7 @@ struct PhyPlan{
     join_id: usize,
     join: bool,
     filter_id: usize,
+    constraints: Vec<Expr>,
 }
 
 #[derive(Debug, Clone, Abomonation)]
@@ -519,12 +500,40 @@ macro_rules! try_option {
 
 type DifferentialEdge = (i32, i32);
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Abomonation)]
 pub struct DiffEdge{
-    source: Node,
-    target: Node,
+    source: i32,
+    target: i32,  
     label: String,    
-    attribute_values: HashMap<String, Literal>,
+    attribute_values: Vec<(String, Literal)>,
+}
+
+impl From<GraphEdge> for DiffEdge {
+    fn from(data: GraphEdge) -> Self {
+        DiffEdge {
+            source: data.source,
+            target: data.target,
+            label: data.label,
+            attribute_values: data.attribute_values.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        }
+    }
+}
+
+
+impl From<DiffEdge> for GraphEdge {
+    fn from(data: DiffEdge) -> Self {
+        let mut map = HashMap::new();
+        for pair in data.attribute_values {
+            let (key, value) = pair;
+            map.insert(key, value);
+        }
+        GraphEdge {
+            source: data.source,
+            target: data.target,
+            label: data.label,
+            attribute_values: map,
+        }
+    }
 }
 
 //////////////////////////////
@@ -1413,7 +1422,7 @@ fn main() {
             });
             
             if computation.index() == 0 { // this block will be executed by worker/thread 0
-
+ 
                 let timer2 = Instant::now();
                 
                 // Load the Graph
@@ -1437,7 +1446,7 @@ fn main() {
                         }
 
                         for elem in value.edges{
-                            edges.send(((elem.source,elem.target),1));
+                            edges.send((elem.into(),1));
                         }
                     }
 
@@ -1452,7 +1461,7 @@ fn main() {
                     }
                     _ => println!("Failed to parse the Graph")
                 }
-                println!("Graph Loading took {:?}", timer2.elapsed());
+                println!("Graph Loading: {:?}\n\n", timer2.elapsed());
             }
 
 
@@ -1464,7 +1473,7 @@ fn main() {
 
 
             if computation.index() == 0 {
-                println!("stable; elapsed: {:?}", timer.elapsed());
+                println!("Total execution time: {:?}\n\n", timer.elapsed());
             }
 
         }).unwrap();
@@ -1472,33 +1481,9 @@ fn main() {
 
 }
 
-fn explore_expr(expr: Expr) -> String {
-    let mut result:String = "".into();
-    match expr {
-        Expr::Attribute(attribute)       => result.push_str(&attribute.name),
-        Expr::Equal(left, right)         => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},        
-        Expr::NotEqual(left, right)      => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Smaller(left, right)       => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::SmallerEq(left, right)     => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Greater(left, right)       => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::GreaterEq(left, right)     => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Like(left, right)          => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::And(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Or(left, right)            => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Not(value)                 => result.push_str(&explore_expr(*value)),
-        Expr::Add(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Sub(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Mul(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Div(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        Expr::Modulo(left, right)        => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
-        _ => {}
-    }
-    result
-}
 
-
-fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &String,
-    vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DifferentialEdge> where G::Timestamp: Lattice {
+fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
+    vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DiffEdge> where G::Timestamp: Lattice {
     
     let query = pgql_query(query_string.as_bytes());
     let timer = Instant::now();
@@ -1554,6 +1539,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                             join_id: 0,
                             join: true,
                             filter_id: 100,
+                            constraints: connection.edge.constraints.clone(),
                         }
                     );
                 }
@@ -1569,6 +1555,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                             join_id: *names.get(&connection.source.name).unwrap(),
                             join: true,
                             filter_id: 100,
+                            constraints: connection.edge.constraints.clone(),
                         }
                     );
                 }
@@ -1581,6 +1568,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                             join_id: *names.get(&connection.source.name).unwrap(),
                             join: false,
                             filter_id: *names.get(&connection.target.name).unwrap(),
+                            constraints: connection.edge.constraints.clone(),
                         }
                     );
                 }
@@ -1600,12 +1588,14 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                                 }
                             }
 
-                        println!("Evaluation took: {:?}\n\n", timer.elapsed());;
+                        println!("Evaluation time: {:?}\n\n", timer.elapsed());;
             }
 
             else{
                 let mut result = None;
                 for step in execution_plan {
+
+                    //let constraints = &step.constraints 
                     
                     if step.join && step.join_id == 0 {
                         let sources = match plans.get(&step.left){
@@ -1617,7 +1607,10 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                             Some(list) => list,
                             None => vertices,
                         };
-                            result =  Some(sources.map(|x| (x.id, x)).join(edges)
+                        //let edges2 = edges.filter(|x| true);
+                            result =    Some(sources.map(|x| (x.id, x))
+                                        .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
+                                        .map(|x| (x.source,x.target)))
                                         .map(|(_,v1,v2)| (v2,v1))
                                         .join(&targets.map(|x| (x.id, x)))
                                         .map(|(_,v1,v2)| vec![v1,v2]));
@@ -1626,7 +1619,8 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                         let int = step.join_id;
                         let int2 = step.filter_id;
                         result = Some(result.unwrap().map(move |x| (x[int].id, x))
-                                .join(edges)
+                                .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
+                                .map(|x| (x.source,x.target)))
                                 .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[int2].id == *id})
                                 .map(|(_,v1,_)| v1));
 
@@ -1637,7 +1631,8 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
                             None => vertices,
                         };
                         result = Some(result.unwrap().map(move |vec| (vec[step.join_id].id, vec))
-                                .join(edges)
+                                .join(&edges.filter(move |x| true)//check_edge(&x, &step.constraints))
+                                .map(|x| (x.source,x.target)))
                                 .map(|(_,v1,v2)| (v2,v1))
                                 .join(&targets.map(|x| (x.id, x)))
                                 .map(|(_, mut v1,v2)| {v1.push(v2);v1}));   
@@ -1693,8 +1688,27 @@ fn evaluate<G: Scope>(edges: &Collection<G, DifferentialEdge>,  query_string: &S
     })
 }
 
+fn check_edge (edge: &DiffEdge, constraints: &Vec<Expr>) -> bool {
+    if constraints.len() == 0 {
+        return true;
+    }
+    let mut result = true;
+    let vertex = (*edge).clone().into();
+    for constraint in constraints {
+        let boolean = match evaluate_expr_edge((*constraint).clone(), &vertex) {
+            Literal::Boolean(value) => value,
+            _ => panic !("Non Boolean value found!")
+        }; 
+        result = result && boolean;
+    }
+    (result)
+}
+
 
 fn check_node (node: &DifferentialVertex, constraints: &Vec<Expr>) -> bool {
+    if constraints.len() == 0 {
+        return true;
+    }
     let mut result = true;
     let vertex = (*node).clone().into();
     for constraint in constraints {
@@ -1736,8 +1750,59 @@ fn evaluate_expr (constraint: Expr, node: &Node) -> Literal {
     }
 }
 
+fn evaluate_expr_edge (constraint: Expr, edge: &GraphEdge) -> Literal {
+    match constraint{
+        Expr::Equal(left, right)         => Literal::Boolean(evaluate_expr_edge(*left, edge) == evaluate_expr_edge(*right, edge)),
+        Expr::NotEqual(left, right)      => Literal::Boolean(evaluate_expr_edge(*left, edge) != evaluate_expr_edge(*right, edge)),
+        Expr::Smaller(left, right)       => evaluate_expr_edge(*left, edge).smaller(evaluate_expr_edge(*right, edge)),
+        Expr::SmallerEq(left, right)     => evaluate_expr_edge(*left, edge).smaller_eq(evaluate_expr_edge(*right, edge)),
+        Expr::Greater(left, right)       => evaluate_expr_edge(*left, edge).greater(evaluate_expr_edge(*right, edge)),
+        Expr::GreaterEq(left, right)     => evaluate_expr_edge(*left, edge).greater_eq(evaluate_expr_edge(*right, edge)),
+        Expr::Like(left, right)          => evaluate_expr_edge(*left, edge).contains(evaluate_expr_edge(*right, edge)),
+        Expr::And(left, right)           => evaluate_expr_edge(*left, edge).and(evaluate_expr_edge(*right, edge)),
+        Expr::Or(left, right)            => evaluate_expr_edge(*left, edge).or(evaluate_expr_edge(*right, edge)),
+        Expr::Not(value)                 => evaluate_expr_edge(*value, edge).not(),
+        Expr::Label(label)               => Literal::Boolean(true),
+        Expr::Add(left, right)           => evaluate_expr_edge(*left, edge).add(evaluate_expr_edge(*right, edge)),
+        Expr::Sub(left, right)           => evaluate_expr_edge(*left, edge).sub(evaluate_expr_edge(*right, edge)),
+        Expr::Mul(left, right)           => evaluate_expr_edge(*left, edge).mul(evaluate_expr_edge(*right, edge)),
+        Expr::Div(left, right)           => evaluate_expr_edge(*left, edge).div(evaluate_expr_edge(*right, edge)),
+        Expr::Modulo(left, right)        => evaluate_expr_edge(*left, edge).modulo(evaluate_expr_edge(*right, edge)),
+        Expr::Literal(value)             => value,
+        Expr::Attribute(attribute)       => {
+            match edge.attribute_values.get(&attribute.field) {
+                Some(literal) => (*literal).clone(),
+                None => Literal::Boolean(false),
+                //panic!("Field {:?} does not exist!", &attribute.field) 
+                }
+            }
+    }
+}
 
 
+fn explore_expr(expr: Expr) -> String {
+    let mut result:String = "".into();
+    match expr {
+        Expr::Attribute(attribute)       => result.push_str(&attribute.name),
+        Expr::Equal(left, right)         => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},        
+        Expr::NotEqual(left, right)      => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Smaller(left, right)       => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::SmallerEq(left, right)     => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Greater(left, right)       => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::GreaterEq(left, right)     => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Like(left, right)          => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::And(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Or(left, right)            => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Not(value)                 => result.push_str(&explore_expr(*value)),
+        Expr::Add(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Sub(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Mul(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Div(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::Modulo(left, right)        => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        _ => {}
+    }
+    result
+}
 
 //////////////////////////////
 //                          //

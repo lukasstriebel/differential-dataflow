@@ -1,1 +1,1 @@
-SELECT * WHERE v.ram < 5, u.ram > 60
+SELECT * WHERE (u) -[e WITH e.utilization > 0.5]-> (v)
