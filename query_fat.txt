@@ -1,1 +1,2 @@
-SELECT * WHERE (u) -[e WITH weight > 8]-> (v), u.position = 'distribution', v.position = 'access'
+SELECT * WHERE (u) -[e WITH weight > 8]-> (v)
+SELECT * WHERE (u) -[e WITH weight < 3]-> (v), u.position = 'Distribution', m.position = 'Access'

@@ -1,1 +1,1 @@
-SELECT * WHERE (u) -[e WITH e.utilization > 0.5]-> (v)
+SELECT * WHERE (u) -[e:connectss]-> (v)

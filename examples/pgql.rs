@@ -1427,7 +1427,7 @@ fn main() {
                 
                 // Load the Graph
                 //let mut file2 = File::open(&graph_filepath.into_inner()).unwrap();
-                let mut file2 = File::open("graph_fat.txt").unwrap();
+                let mut file2 = File::open("graph.txt").unwrap();
                 let mut string = String::new();
                  
                 match file2.read_to_string(&mut string) {
@@ -1509,15 +1509,6 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                 }
             }
 
-            let mut plans = HashMap::new();
-
-            for (name, filter) in selections {
-                let result = vertices.filter(move |x| {
-                    check_node(&x, &filter)
-                });
-                plans.insert(name, result);
-            }
-
             let mut execution_plan = Vec::new();
             let mut used_fields= HashSet::new();
             let mut names = HashMap::new();
@@ -1531,6 +1522,24 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                     ids = ids + 1;
                     names.insert(&connection.target.name, ids);
                     ids = ids + 1;
+
+                    let mut new = false;
+                    match selections.get_mut(&connection.source.name) {
+                            Some(mut vec) => vec.append(& mut connection.source.constraints.clone()),
+                            None => new = true,
+                    }
+                    if new {
+                            selections.insert(connection.source.name.clone(), connection.source.constraints.clone());
+                    }
+                    new = false;
+                    match selections.get_mut(&connection.target.name) {
+                            Some(mut vec) => vec.append(& mut connection.target.constraints.clone()),
+                            None => new = true,
+                    }
+                    if new {
+                            selections.insert(connection.target.name.clone(), connection.target.constraints.clone());
+                    }
+
                     execution_plan.push(
                         PhyPlan{ 
                             name: vec![connection.source.name.clone(), connection.target.name.clone()],
@@ -1547,6 +1556,15 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                     used_fields.insert(&connection.target.name);
                     names.insert(&connection.target.name, ids);
                     ids = ids + 1;
+
+                    let mut new = false;
+                    match selections.get_mut(&connection.target.name) {
+                            Some(mut vec) => vec.append(& mut connection.target.constraints.clone()),
+                            None => new = true,
+                    }
+                    if new {
+                            selections.insert(connection.target.name.clone(), connection.target.constraints.clone());
+                    }
                     execution_plan.push(
                         PhyPlan{ 
                             name: vec![connection.source.name.clone(), connection.target.name.clone()],
@@ -1574,8 +1592,18 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                 }
 
             }
+
+            let mut plans = HashMap::new();
+
+            for (name, filter) in selections {
+                let result = vertices.filter(move |x| {
+                    check_node(&x, &filter)
+                });
+                plans.insert(name, result);
+            }
+
             if execution_plan.len() == 0 {
-                for projection in &select{
+               /* for projection in &select{
                                 match projection {
                                     &SelectElem::Star => {for (ref key,ref plan) in &plans {
                                         plan.inspect(|&(ref x,_)| println!("{:?}", x));
@@ -1586,9 +1614,9 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                     },
                                     &SelectElem::Aggregation(ref aggr) => {println!("{:?} not yet supported", aggr );},
                                 }
-                            }
+                            }*/
 
-                        println!("Evaluation time: {:?}\n\n", timer.elapsed());;
+                        println!("Evaluation time: {:?}\n\n", timer.elapsed());
             }
 
             else{
@@ -1655,7 +1683,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                         println!("Evaluation took: {:?}\n\n", timer.elapsed());
                     },
                     None => {println!("No vertices match your criteria");},
-                }    
+                }   
             }
         }
 
@@ -1762,7 +1790,7 @@ fn evaluate_expr_edge (constraint: Expr, edge: &GraphEdge) -> Literal {
         Expr::And(left, right)           => evaluate_expr_edge(*left, edge).and(evaluate_expr_edge(*right, edge)),
         Expr::Or(left, right)            => evaluate_expr_edge(*left, edge).or(evaluate_expr_edge(*right, edge)),
         Expr::Not(value)                 => evaluate_expr_edge(*value, edge).not(),
-        Expr::Label(label)               => Literal::Boolean(true),
+        Expr::Label(label)               => Literal::Boolean(edge.label == label),
         Expr::Add(left, right)           => evaluate_expr_edge(*left, edge).add(evaluate_expr_edge(*right, edge)),
         Expr::Sub(left, right)           => evaluate_expr_edge(*left, edge).sub(evaluate_expr_edge(*right, edge)),
         Expr::Mul(left, right)           => evaluate_expr_edge(*left, edge).mul(evaluate_expr_edge(*right, edge)),
