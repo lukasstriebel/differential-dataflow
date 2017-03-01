@@ -63,7 +63,7 @@ class BenchmarkBinaryFactory(object):
 
     def build(self):
         pe = ProcessExecuter()
-        command = ['cargo', 'build', self.mode, '--bin', self.binary]
+        command = ['cargo', 'build', self.mode, '--example', self.binary]
         pe.execute(command).communicate()
         return BenchmarkBinary(self.binary, self.mode)
 
@@ -138,7 +138,7 @@ class Benchmark(object):
         else:
             print('Running experiment for %s.' % (saveFile))
             static = self.configuration.staticConfig
-            command = ['cargo', 'run', self.binary.mode, '--bin', self.binary.binary,
+            command = ['cargo', 'run', self.binary.mode, '--example', self.binary.binary,
                        static.topology, static.hosts, static.switches,
                        static.ports, self.configuration.batches,
                        self.configuration.batchSize, self.configuration.changeRatio,

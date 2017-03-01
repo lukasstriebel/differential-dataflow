@@ -29,6 +29,7 @@ use std::collections::HashSet;
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::cell::RefCell;
+use std::mem;
 
 //////////////////////////////
 //                          //
@@ -56,6 +57,7 @@ pub enum Expr {
     And        (Box<Expr>, Box<Expr>),
     Or         (Box<Expr>, Box<Expr>),
     Not        (Box<Expr>),
+    BuiltIn    (String, BuiltIn),
 }
 
 
@@ -264,7 +266,7 @@ pub struct Query {
 #[derive(Debug,PartialEq)]
 pub enum SelectElem {
     Star,
-    Aggregation(Aggregate),
+    Aggregation(Aggregation),
     Attribute(Attribute),
 }
 
@@ -379,7 +381,7 @@ pub enum Oper {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BuiltIn {
     Id,
     InDegree,
@@ -391,7 +393,7 @@ pub enum BuiltIn {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Aggregate {
+pub enum Aggregation {
     Count(Attribute),
     Min(Attribute),
     Max(Attribute),
@@ -519,6 +521,24 @@ impl From<GraphEdge> for DiffEdge {
     }
 }
 
+impl GraphEdge {
+    fn trans(&self) -> DiffEdge {
+        DiffEdge {
+            source: self.source,
+            target: self.target,
+            label: self.label.clone(),
+            attribute_values: self.attribute_values.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        }
+    }
+    fn trans_rev(&self) -> DiffEdge {
+        DiffEdge {
+            source: self.target,
+            target: self.source,
+            label: self.label.clone(),
+            attribute_values: self.attribute_values.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        }
+    }
+}
 
 impl From<DiffEdge> for GraphEdge {
     fn from(data: DiffEdge) -> Self {
@@ -589,14 +609,14 @@ named!(select_elems<Vec<SelectElem> >,
             aggregate => {|aggregation| 
                         SelectElem::Aggregation(aggregation)} |
             do_parse!(
-                v: field_name >>
+                v: variable_name >>
                 char!(',') >>
                 opt!(space) >> ({
                     let (name, field) = v;
                         let a = Attribute{name: name, field: field};
                         SelectElem::Attribute(a)})
             )  
-            | field_name => {|v| {let (name, field) = v;
+            | variable_name => {|v| {let (name, field) = v;
                         let a = Attribute{name: name, field: field};
                         SelectElem::Attribute(a)}}
            
@@ -896,7 +916,7 @@ named!(expressions<Vec<Expr> >,
         opt!(space) >>
         a: alt!(
                 literal => {|l| Expr::Literal(l) } |
-                field_name => {
+                variable_name => {
                     |v| {
                         let (name, field) = v;
                         let a = Attribute{name: name, field: field};
@@ -914,11 +934,17 @@ named!(expressions<Vec<Expr> >,
     )
 );*/
 
-
 named!(operand<Expr>,
-        alt!(
+        alt_complete!(
                 literal => {|l| Expr::Literal(l) } |
-                field_name => {
+                do_parse!(
+                    name: char_only >>
+                    tag!(".") >>
+                    func: builtin_function >> ({
+                        Expr::BuiltIn(name.into(),func)
+                    })
+                ) |
+                variable_name => {
                     |value| {
                         let (name, field) = value;
                         let attribute = Attribute{name: name, field: field};
@@ -983,51 +1009,51 @@ fn fold_exprs(initial: Expr, remainder: Vec<(Oper, Expr)>) -> Expr {
 
 
 
-named!(aggregate<Aggregate>,
+named!(aggregate<Aggregation>,
     alt_complete!(
         do_parse!(
             tag_no_case_s!("count") >>
-            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
             ({
-                let (name, field) = field_name;
+                let (name, field) = variable_name;
                 let attribute = Attribute{name: name, field: field};
-                Aggregate::Count(attribute)
+                Aggregation::Count(attribute)
             })
             ) |
         do_parse!(
             tag_no_case_s!("min") >>
-            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
             ({
-                let (name, field) = field_name;
+                let (name, field) = variable_name;
                 let attribute = Attribute{name: name, field: field};
-                Aggregate::Min(attribute)
+                Aggregation::Min(attribute)
             })
             ) |
         do_parse!(
             tag_no_case_s!("max") >>
-            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
             ({
-                let (name, field) = field_name;
+                let (name, field) = variable_name;
                 let attribute = Attribute{name: name, field: field};
-                Aggregate::Max(attribute)
+                Aggregation::Max(attribute)
             })
             ) |
         do_parse!(
             tag_no_case_s!("sum") >>
-            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
             ({
-                let (name, field) = field_name;
+                let (name, field) = variable_name;
                 let attribute = Attribute{name: name, field: field};
-                Aggregate::Sum(attribute)
+                Aggregation::Sum(attribute)
             })
             ) |
         do_parse!(
             tag_no_case_s!("avg") >>
-            field_name: delimited!(tag!("("), field_name, tag!(")")) >>
+            variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
             ({
-                let (name, field) = field_name;
+                let (name, field) = variable_name;
                 let attribute = Attribute{name: name, field: field};
-                Aggregate::Avg(attribute)
+                Aggregation::Avg(attribute)
             })
             ) 
     )
@@ -1160,7 +1186,7 @@ named!(group_by<GroupBy>,
 //////////////////////////////
 
 
-named!(field_name<(String,String)>,
+named!(variable_name<(String,String)>,
     alt_complete!(            
             chain!(
                 name: char_only ~
@@ -1389,10 +1415,22 @@ impl Display for Graph
     }
 }
 
+fn string_to_static_str(s: String) -> &'static str {
+    unsafe {
+        let ret = mem::transmute(&s as &str);
+        mem::forget(s);
+        ret
+    }
+}
+
 fn main() { 
 
-    let graph_filepath: RefCell<String>= RefCell::new(std::env::args().nth(2).unwrap());
-    let query_filepath: String = std::env::args().nth(2).unwrap();
+    //let graph_filepath: RefCell<String>= RefCell::new(std::env::args().nth(2).unwrap());
+    //let graph_filepath: String = std::env::args().nth(1).unwrap();
+    //let st = string_to_static_str(graph_filepath);
+    let st = "graph.txt";
+    //let query_filepath: String = std::env::args().nth(2).unwrap();
+    let query_filepath: String = "query.txt".into(); 
 
     //Parse the Query
     let mut file = File::open(&query_filepath).unwrap();
@@ -1404,7 +1442,7 @@ fn main() {
         let query = line.unwrap();
 
         // define a new computational scope, in which to run the query
-        timely::execute_from_args(std::env::args().skip(2), move |computation| {
+        timely::execute_from_args(std::env::args().skip(0), move |computation| {
 
             let timer = Instant::now();
 
@@ -1427,7 +1465,7 @@ fn main() {
                 
                 // Load the Graph
                 //let mut file2 = File::open(&graph_filepath.into_inner()).unwrap();
-                let mut file2 = File::open("graph.txt").unwrap();
+                let mut file2 = File::open(st).unwrap();
                 let mut string = String::new();
                  
                 match file2.read_to_string(&mut string) {
@@ -1446,7 +1484,8 @@ fn main() {
                         }
 
                         for elem in value.edges{
-                            edges.send((elem.into(),1));
+                            edges.send((elem.trans(),1));
+                            edges.send((elem.trans_rev(),1));
                         }
                     }
 
@@ -1459,7 +1498,7 @@ fn main() {
                             _ => println!("{:?}",value)
                         }
                     }
-                    _ => println!("Failed to parse the Graph")
+                    IResult::Incomplete( value) =>println!("{:?}", value)
                 }
                 println!("Graph Loading: {:?}\n\n", timer2.elapsed());
             }
@@ -1473,7 +1512,7 @@ fn main() {
 
 
             if computation.index() == 0 {
-                println!("Total execution time: {:?}\n\n", timer.elapsed());
+                println!("Total Execution: {:?}\n\n", timer.elapsed());
             }
 
         }).unwrap();
@@ -1603,7 +1642,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
             }
 
             if execution_plan.len() == 0 {
-               /* for projection in &select{
+                for projection in &select{
                                 match projection {
                                     &SelectElem::Star => {for (ref key,ref plan) in &plans {
                                         plan.inspect(|&(ref x,_)| println!("{:?}", x));
@@ -1612,10 +1651,11 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                     &SelectElem::Attribute(ref attr) => {//let id = names.get(&attr.name).unwrap();
                                         //println!("{:?}", plans.get(&attr.field).unwrap() );
                                     },
-                                    &SelectElem::Aggregation(ref aggr) => {println!("{:?} not yet supported", aggr );},
+                                    &SelectElem::Aggregation(ref aggr) => {
+                                        println!("{:?} not yet supported", aggr );
+                                    },
                                 }
-                            }*/
-
+                            }
                         println!("Evaluation time: {:?}\n\n", timer.elapsed());
             }
 
@@ -1635,13 +1675,12 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                             Some(list) => list,
                             None => vertices,
                         };
-                        //let edges2 = edges.filter(|x| true);
-                            result =    Some(sources.map(|x| (x.id, x))
-                                        .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
-                                        .map(|x| (x.source,x.target)))
-                                        .map(|(_,v1,v2)| (v2,v1))
-                                        .join(&targets.map(|x| (x.id, x)))
-                                        .map(|(_,v1,v2)| vec![v1,v2]));
+                        result =    Some(sources.map(|x| (x.id, x))
+                                    .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
+                                    .map(|x| (x.source,x.target)))
+                                    .map(|(_,v1,v2)| (v2,v1))
+                                    .join(&targets.map(|x| (x.id, x)))
+                                    .map(|(_,v1,v2)| vec![v1,v2]));
                     }
                     else if !step.join {
                         let int = step.join_id;
@@ -1669,18 +1708,33 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
 
                 match result {
                     Some(list) => {
+                        let mut count = 0;
                         println!("Your Query {} returned the following result:\n", query_string);
-                        list.inspect(move |&(ref x,_)| {
-                            for projection in &select{
-                                match projection {
-                                    &SelectElem::Star => {println!("{:?}", x );},
-                                    &SelectElem::Attribute(ref attr) => {//let id = names.get(&attr.name).unwrap();
-                                        println!("{:?}", x[0].get(&attr.field).unwrap() );},
-                                    &SelectElem::Aggregation(ref aggr) => {println!("{:?} not yet supported", aggr );},
-                                }
+          
+                        for projection in &select{
+                            match projection {
+                                &SelectElem::Star => {
+                                    list.inspect(|&(ref x,_)| println!("{:?}", x));
+                                },
+                                &SelectElem::Attribute(ref attr) => {//let id = names.get(&attr.name).unwrap();
+                                    //println!("{:?}", x[0].get(&attr.field).unwrap() );
+                                    
+                                },
+                                &SelectElem::Aggregation(ref aggr) => {
+                                    match aggr {
+                                        &Aggregation::Count(ref attr) => {
+                                            //list.map(|x| x[0].id).count().inspect(|x| println!("{:?}", x));
+                                        },
+                                        _ => println!("{:?} not yet supported", aggr )
+                                    }
+
+                                },
                             }
-                        });
-                        println!("Evaluation took: {:?}\n\n", timer.elapsed());
+                        }
+                        list.inspect(move |_| {count = count + 1; println!("{:?}", count);});
+                        //println!("Return tuples = {:?}\nEvaluation took: {:?}\n\n",count, timer.elapsed());
+                        println!("Evaluation time: {:?}\n\n", timer.elapsed());
+                        
                     },
                     None => {println!("No vertices match your criteria");},
                 }   
@@ -1774,12 +1828,19 @@ fn evaluate_expr (constraint: Expr, node: &Node) -> Literal {
                 None => Literal::Boolean(false),
                 //panic!("Field {:?} does not exist!", &attribute.field) 
                 }
+            },
+        Expr::BuiltIn(_, function) => {
+            match function {
+                BuiltIn::Label => Literal::Str(node.label[0].clone()),
+                BuiltIn::Id => Literal::Float(node.id as f32),
+                _ => panic!("Function {:?} not supported for nodes", function)
             }
+        }
     }
 }
 
 fn evaluate_expr_edge (constraint: Expr, edge: &GraphEdge) -> Literal {
-    match constraint{
+    match constraint {
         Expr::Equal(left, right)         => Literal::Boolean(evaluate_expr_edge(*left, edge) == evaluate_expr_edge(*right, edge)),
         Expr::NotEqual(left, right)      => Literal::Boolean(evaluate_expr_edge(*left, edge) != evaluate_expr_edge(*right, edge)),
         Expr::Smaller(left, right)       => evaluate_expr_edge(*left, edge).smaller(evaluate_expr_edge(*right, edge)),
@@ -1803,7 +1864,13 @@ fn evaluate_expr_edge (constraint: Expr, edge: &GraphEdge) -> Literal {
                 None => Literal::Boolean(false),
                 //panic!("Field {:?} does not exist!", &attribute.field) 
                 }
+            },
+        Expr::BuiltIn(_, function) => {
+            match function {
+                BuiltIn::Label => Literal::Str(edge.label.clone()),
+                _ => panic!("Function {:?} not supported for edges", function)
             }
+        }
     }
 }
 
@@ -1827,6 +1894,7 @@ fn explore_expr(expr: Expr) -> String {
         Expr::Mul(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
         Expr::Div(left, right)           => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
         Expr::Modulo(left, right)        => {result.push_str(&explore_expr(*left)); result.push_str(&explore_expr(*right));},
+        Expr::BuiltIn(name, right)       => result.push_str(&name),
         _ => {}
     }
     result
