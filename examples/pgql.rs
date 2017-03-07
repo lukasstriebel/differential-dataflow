@@ -13,6 +13,7 @@ use differential_dataflow::Collection;
 use differential_dataflow::operators::*;
 use differential_dataflow::lattice::Lattice;
 use differential_dataflow::operators::Join;
+use differential_dataflow::operators::Group;
 
 use nom::{IResult, space, alpha, digit, Err};
 
@@ -250,6 +251,12 @@ impl Literal {
              _ => panic!("Contains with non String value") 
         }
     }
+    fn as_float(&self) -> f32{
+        match *self {
+            Literal::Float(value) => value,
+            _ => panic!("No Float value found")
+        }
+    }
 }
 //////////////////////////////
 //                          //
@@ -420,7 +427,7 @@ struct PhyPlan{
     constraints: Vec<Expr>,
 }
 
-#[derive(Debug, Clone, Abomonation)]
+#[derive(Debug, Clone, Abomonation, Default)]
 pub struct DifferentialVertex{
     id: i32,
     label: Vec<String>,
@@ -1423,26 +1430,33 @@ fn string_to_static_str(s: String) -> &'static str {
     }
 }
 
+fn int_to_static_str(s: usize) -> &'static usize {
+    unsafe {
+        let ret = mem::transmute(s);
+        mem::forget(s);
+        ret
+    }
+}
+
 fn main() { 
 
     //let graph_filepath: RefCell<String>= RefCell::new(std::env::args().nth(2).unwrap());
-    //let graph_filepath: String = std::env::args().nth(1).unwrap();
-    //let st = string_to_static_str(graph_filepath);
-    let st = "graph.txt";
-    //let query_filepath: String = std::env::args().nth(2).unwrap();
-    let query_filepath: String = "query.txt".into(); 
+    let graph_filepath: String = std::env::args().nth(1).unwrap();
+    let st = string_to_static_str(graph_filepath);
+    //let st = "graph.txt";
+    let query_filepath: String = std::env::args().nth(2).unwrap();
+    //let query_filepath: String = "query.txt".into(); 
 
     //Parse the Query
     let mut file = File::open(&query_filepath).unwrap();
     let mut reader = BufReader::new(&file);
-    let s:String="test".into(); 
-
+    
     for line in reader.lines() {
 
         let query = line.unwrap();
 
         // define a new computational scope, in which to run the query
-        timely::execute_from_args(std::env::args().skip(0), move |computation| {
+        timely::execute_from_args(std::env::args().skip(2), move |computation| {
 
             let timer = Instant::now();
 
@@ -1469,9 +1483,10 @@ fn main() {
                 let mut string = String::new();
                  
                 match file2.read_to_string(&mut string) {
-                    Err(error) => panic!("Couldn't read file {}: {}", "graph_filepath",
+                    Err(error) => panic!("Couldn't read file {}: {}", st,
                                                                error.description()),
-                    Ok(_) => println!("Graph File {} successfully opened\n", "graph_filepath"),
+                    Ok(_) => {//println!("Graph File {} successfully opened\n", "graph_filepath")
+                    },
                 }
                 
                 let result = graph_parser(&string.as_bytes());
@@ -1638,21 +1653,89 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                 let result = vertices.filter(move |x| {
                     check_node(&x, &filter)
                 });
+
                 plans.insert(name, result);
             }
 
             if execution_plan.len() == 0 {
                 for projection in &select{
                                 match projection {
-                                    &SelectElem::Star => {for (ref key,ref plan) in &plans {
+                                    &SelectElem::Star => {
+                                        /*for (ref key,ref plan) in &plans {
                                         plan.inspect(|&(ref x,_)| println!("{:?}", x));
-                                    }
-                                },
-                                    &SelectElem::Attribute(ref attr) => {//let id = names.get(&attr.name).unwrap();
-                                        //println!("{:?}", plans.get(&attr.field).unwrap() );
+                                    }*/
+                                    },
+                                    &SelectElem::Attribute(ref attr) => {
+                                        /*let vertices = plans.get(&attr.name).unwrap();
+                                        let field = string_to_static_str(attr.field.clone());
+                                        vertices.inspect(move |&(ref x,_)| println!("{:?}", x.get(field.into()).unwrap()));*/
+                                       
                                     },
                                     &SelectElem::Aggregation(ref aggr) => {
-                                        println!("{:?} not yet supported", aggr );
+                                        match aggr {
+                                            &Aggregation::Count(ref attr) => {
+                                                let plan = plans.get(&attr.name).unwrap();
+                                                    (*plan).map(|x| (1, x)).group(|key, vals, output| {
+                                                        let mut count = 0;
+                                                        for _ in vals {
+                                                            count = count + 1;
+                                                        }                                                        
+                                                        output.push(((),count));
+                                                    });//.inspect(|&(_, ref x)| println!("{:?}", x));
+                                                
+                                            },
+                                            &Aggregation::Max(ref attr) => {
+                                                let plan = plans.get(&attr.name).unwrap();
+                                                let field = string_to_static_str(attr.field.clone());
+                                                (*plan).map(|x| (1, x)).group(move |key, vals, output| {
+                                                    let mut max = vals.next().unwrap().0.get(&field.into()).unwrap().as_float();
+                                                    for (val,_) in vals {
+                                                        let value = val.get(&field.into()).unwrap().as_float();
+                                                        if value > max{
+                                                        max = value;}
+                                                    }                                                
+                                                    output.push(((), max as  i32));
+                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                            },
+                                            &Aggregation::Min(ref attr) => {
+                                                let plan = plans.get(&attr.name).unwrap();
+                                                let field = string_to_static_str(attr.field.clone());
+                                                (*plan).map(|x| (1, x)).group(move |key, vals, output| {
+                                                    let mut min = vals.next().unwrap().0.get(&field.into()).unwrap().as_float();
+                                                    for (val,_) in vals {
+                                                        let value = val.get(&field.into()).unwrap().as_float();
+                                                        if value < min{
+                                                        min = value;}
+                                                    }                                                
+                                                    output.push(((), min as  i32));
+                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                            },
+                                            &Aggregation::Sum(ref attr) => {
+                                                let plan = plans.get(&attr.name).unwrap();                                            
+                                                let field = string_to_static_str(attr.field.clone());
+                                                (*plan).map(|x| (1, x)).group(move |key, vals, output| {
+                                                    let mut sum = 0.0;
+                                                    for (val,_) in vals {
+                                                        sum = sum + val.get(&field.into()).unwrap().as_float();
+                                                    }                                                
+                                                    output.push(((),sum as i32));
+                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                            },
+                                            &Aggregation::Avg(ref attr) => {
+                                                let plan = plans.get(&attr.name).unwrap();                                            
+                                                let field = string_to_static_str(attr.field.clone());
+                                                (*plan).map(|x| (1, x)).group(move |key, vals, output| {
+                                                    let mut count = 0;
+                                                    let mut sum = 0.0;
+                                                    for (val,_) in vals {
+                                                        count = count + 1;
+                                                        sum = sum + val.get(&field.into()).unwrap().as_float();
+                                                    }                                                
+                                                    output.push(((),sum as i32 /count ));
+                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                            }                                        
+                                        
+                                        }
                                     },
                                 }
                             }
@@ -1709,29 +1792,85 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                 match result {
                     Some(list) => {
                         let mut count = 0;
-                        println!("Your Query {} returned the following result:\n", query_string);
+                        //println!("Your Query {} returned the following result:\n", query_string);
           
                         for projection in &select{
                             match projection {
                                 &SelectElem::Star => {
-                                    list.inspect(|&(ref x,_)| println!("{:?}", x));
+                                    //list.inspect(|&(ref x,_)| println!("{:?}", x));
                                 },
-                                &SelectElem::Attribute(ref attr) => {//let id = names.get(&attr.name).unwrap();
+                                &SelectElem::Attribute(ref attr) => {
+                                    /*let strng = string_to_static_str(attr.name.clone());
+                                    let field = string_to_static_str(attr.field.clone());
+                                    let id = names.get(&attr.name).unwrap();
+                                    list.inspect(move |&(ref x,_)| println!("{:?}", x[0].get(&field.into()).unwrap()));*/
                                     //println!("{:?}", x[0].get(&attr.field).unwrap() );
                                     
                                 },
                                 &SelectElem::Aggregation(ref aggr) => {
                                     match aggr {
                                         &Aggregation::Count(ref attr) => {
-                                            //list.map(|x| x[0].id).count().inspect(|x| println!("{:?}", x));
-                                        },
-                                        _ => println!("{:?} not yet supported", aggr )
+                                                list.map(move |x| (1, x)).group(move |key, vals, output| {
+                                                        let mut count = 0;
+                                                        for _ in vals {
+                                                            count = count + 1;
+                                                        }                                                        
+                                                        output.push(((),count));
+                                                    });//.inspect(|&(_, ref x)| println!("{:?}", x));
+                                                
+                                            },
+                                            &Aggregation::Sum(ref attr) => {
+                                                let field = string_to_static_str(attr.field.clone());
+                                                list.map(|x| (1, x)).group(move |key, vals, output| {
+                                                    let mut sum = 0.0;
+                                                    for (val,_) in vals {
+                                                        sum = sum + val[0].get(&field.into()).unwrap().as_float();
+                                                    }                                                
+                                                    output.push(((),sum as i32));
+                                                }).inspect(|&(_, ref x)| println!("{:?}", x));                                                
+                                            },
+                                            &Aggregation::Avg(ref attr) => {                                           
+                                                let field = string_to_static_str(attr.field.clone());
+                                                list.map(|x| (1, x)).group(move |key, vals, output| {
+                                                    let mut count = 0;
+                                                    let mut sum = 0.0;
+                                                    for (val,_) in vals {
+                                                        count = count + 1;
+                                                        sum = sum + val[0].get(&field.into()).unwrap().as_float();
+                                                    }                                                
+                                                    output.push(((),sum as i32 /count ));
+                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                            },
+                                            &Aggregation::Max(ref attr) => {
+                                                let field = string_to_static_str(attr.field.clone());
+                                                list.map(|x| (1, x)).group(move |key, vals, output| {
+                                                    let mut max = vals.next().unwrap().0[0].get(&field.into()).unwrap().as_float();
+                                                    for (val,_) in vals {
+                                                        let value = val[0].get(&field.into()).unwrap().as_float();
+                                                        if value > max{
+                                                        max = value;}
+                                                    }                                                
+                                                    output.push(((), max as  i32));
+                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                            },
+                                            &Aggregation::Min(ref attr) => {
+                                                let field = string_to_static_str(attr.field.clone());
+                                                list.map(|x| (1, x)).group(move |key, vals, output| {
+                                                    let mut min = vals.next().unwrap().0[0].get(&field.into()).unwrap().as_float();
+                                                    for (val,_) in vals {
+                                                        let value = val[0].get(&field.into()).unwrap().as_float();
+                                                        if value < min{
+                                                        min = value;}
+                                                    }                                                
+                                                    output.push(((), min as  i32));
+                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                            }
                                     }
 
                                 },
                             }
                         }
-                        list.inspect(move |_| {count = count + 1; println!("{:?}", count);});
+                        //list.inspect(move |_| {count = count + 1; println!("{:?}", count);});
                         //println!("Return tuples = {:?}\nEvaluation took: {:?}\n\n",count, timer.elapsed());
                         println!("Evaluation time: {:?}\n\n", timer.elapsed());
                         
@@ -1754,17 +1893,8 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
             _ => println!("{:?}", query)            
         
     }
-
-    /*let project = vec![Expr::Attribute(Attribute{name:"v".into(), field:"name".into()}),
-                     Expr::Attribute(Attribute{name:"v".into(), field:"age".into()})];
-
-    for attr in project {
-            match attr {
-                Expr::Attribute(attribute) => println!("{:?}", node.attribute_values.get(&attribute.field)),
-                _ => println!("failure")
-            }*/
     
-    edges.filter(|x| {
+    edges.filter(|_| {
         true
         //let &(ref source, ref target) = x;
     })
