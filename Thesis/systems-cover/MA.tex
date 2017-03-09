@@ -1,0 +1,212 @@
+\documentclass[11pt,singlecolumn]{scrartcl}
+\usepackage[masterthesis]{systems-cover}
+\usepackage{amsmath,amssymb,amstext}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage[capposition=bottom]{floatrow}
+\usepackage{listings}
+
+
+\lstset{frame=tb,
+  language=Java,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{green},
+  stringstyle=\color{blue},
+  breaklines=true,
+  breakatwhitespace=true,
+  tabsize=3
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{A High-level Graph Query Language Interface for Differential Dataflow}
+\fancyhead[RE,LO]{Lukas Striebel}
+
+\fancyfoot[RE,lO]{Master Thesis}
+\fancyfoot[LE,RO]{\thepage}
+
+\renewcommand{\headrulewidth}{2pt}
+\renewcommand{\footrulewidth}{1pt}
+
+\covernum{164}
+\covertitle{A High-level Graph Query Language Interface for Differential Dataflow}
+\coverauthor{Lukas Striebel}
+\coverdate{06.10.2016 - 06.04.2017}
+\coversupervisedby{Prof.\ Timothy Roscoe, John Liagouris, Desislava Demitrova, Moritz Hoffmann}
+
+
+\begin{document}
+
+\hspace{60mm}
+\begin{center}
+ \textbf{Abstract} \end{center}
+
+
+
+\clearpage
+\tableofcontents
+\clearpage
+\section{Introduction}
+\subsection{Motivation}
+
+\clearpage
+
+\section{Background}
+\subsection{The Property Graph Query Language}
+
+The Property Graph Query Language (PGQL) was developed by Oskar van Rest at Oracle. \cite{vanRest:2016} PGQL enables developers to write intuitive path queries over a property graph. A PGQL query consists of 4 clauses, two of them are optional.
+\begin{itemize} 
+\item Path Clause (optional)
+\item Select Clause (required)
+\item Where Clause (required)
+\item Solution Modifier Clause (optional)
+\end{itemize}
+
+In the Path Clause custom path patterns are defined, which are to be used again in the Where Clause.\\\\
+The Select Clause bears great similarity to the SQL one. Here, the set of properties one wishes to retrieve is defined.\\\\
+ 
+
+\clearpage
+
+\subsection{Differential Dataflow}
+
+Differential Dataflow was developed by Frank McSherry at Microsoft. \cite{Differential}
+Rather than rewriting the entire data every time a change occurs, Differential Dataflow only keeps track of the changes made to the data. This allows for huge timesavings when executing the same operation multiple times on different data, since the results of previous computations can be reused.
+\clearpage
+
+\section{Parser}
+The Parser is build using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process.\\\\
+The most commonly used macros were:
+\begin{itemize} 
+\item do\_parse!: Takes a list of parsers as inputs and applies them sequentially, finally returns a tupel.
+\item alt\_complete!: Takes a set of parsers as input and applies them until one succeeds. Returns the result of the first successful parser.
+\item opt!: Takes a parsers as input and makes it optional. Returns None if parser was unsuccessful or Some otherwise.
+\item tag!: Parses a specific String. Aborts if the String is not found.
+\item named!: Faciliates the creation of new custom parsers.  
+\end{itemize}
+
+\clearpage
+
+\subsection{Path Clause}
+
+The Path Clause is a list of definitions. Each Path definition starts with a name, followed by `:=' and then a path description. The path defined in this clause can then be reused in the Where Clause.
+
+\clearpage
+\subsection{Select Clause}
+The Select Clause of PGQL is very similar to the SQL one. Started by the keyword `Select', a list of attributes is provided. Attributes may be renamed with the keyword `as'. Aggregate functions like `Sum', `Avg' etc. may also be accessed.
+
+\clearpage
+
+\subsection{Where Clause}
+The Where Clause consists of a list of Constraints. Each constraint defines either a path or value requirement that has to be fulfilled by the respective vertex or edge.
+ 
+ \subsubsection{Path Constraints}
+ A Path Constraint requires a vertex to have certain edges to other vertices. For example, the constraint: (v) -> (u) requires that the vertex v has a direct edge to the vertex v.
+ 
+ \subsubsection{Value Constraints}
+ Value Constraints are constraints on attributes of the Vertex, e.g. name = `Alice' or age \textless  40. Every Value Constraint has to include one or multiple vertex attributes, and one or more Literals. Literals are raw values, and come in 3 types:
+ \begin{itemize} 
+\item Strings e.g. `Alice'
+\item Floats e.g. 40
+\item Booleans, which are either true or false
+\end{itemize}
+ 
+ \begin{lstlisting}
+pub enum Literal {
+    Str(String),
+    Float(f32),
+    Boolean(bool),
+} 
+ 
+named!(literal<Literal>,
+    alt_complete!(
+        float       => { |f| Literal::Float(f)             } |
+        boolean     => { |b| Literal::Boolean(b)           } |
+        string      => { |s| Literal::Str(String::from(s)) } 
+            
+    )
+);
+ \end{lstlisting}
+ 
+ \clearpage
+ 
+ \subsection{Solution Modifier Clause}
+ 
+ The Solution Modifier Clause consists of three parts: 
+  \begin{itemize} 
+\item GroupBy Clause
+\item OrderClause
+\item Offset and Limit Clause
+\end{itemize}
+ All clauses are optional and can be omitted. 
+ 
+\clearpage
+
+\section{Query Evaluation}
+
+\clearpage
+
+\subsection{Graph Loader}
+ 
+\clearpage
+
+\section{Benchmarking}
+
+\clearpage
+
+
+\section{Results and Discussion}
+
+\clearpage
+
+\section{Related Work}
+
+
+\subsection{PQL}
+A program query language, PQL for short, is a source language-independent notation to specify program queries and program views. PQL is used as an interface to Static Program Analyzers (SPA), interactive tools that enhance program understanding by answering queries about programs. Queris on global program design as well as searches for detail code patterns are both possible in PQL. Program queries and patterns supported by other notations described in literature and those supported by commercial tools can be written simply and naturally in PQL.\cite {PQL}
+
+\clearpage
+
+\subsection{Green-Marl}
+Green-Marl is a domain-specific language (DSL) with high level language construct that allow developers to describe their graph analysis algorithms intuitively, but expose the data-level parallelism inherent in the algorithms. Green-Marl comes with its own compiler which translates high-level algorithmic description written in Green-Marl into an efficient C++ implementation by exploiting this exposed datalevel parallelism. Furthermore, the Green-Marl compiler applies a set of optimizations that take advantage of the high-level semantic knowledge encoded in the Green-Marl DSL. Most graph analysis algorithms can be written very intuitively with Green-Marl and experimental results show that the compiler-generated implementation out of such descriptions performs just as well as or better than highly-tuned handcoded implementations.\cite {Greenmarl}
+
+\clearpage
+
+\subsection{Gremlin}
+Developed by the Apache Software Foundation, Gremlin is a query language as well as a graph traversal machine. The graph traversal machine Gremlin consists of three parts that continously interact with each other: first the graph, second the traversal and finally the set of traversers. The traversers move about the graph according to the instructions specified in the traversal, where the result of the computation is the ultimate locations of all halted traversers. A Gremlin machine can be executed over any supporting graph computing system such as an OLTP graph database and/or an OLAP graph processor. The language Gremlin is a functional language implemented in the user’s native programming language. Gremlin supports both imperative and declarative querying.
+\cite{Gremlin}
+
+\clearpage
+
+\subsection{SQLGraph}
+SQLGraph is a Graph Store that combines existing relational optimizers with a novel schema, in an attempt to give better performance for property graph storage and retrieval than popular noSQL graph stores. The schema combines relational storage for adjacency information with JSON storage for vertex and edge attributes. This particular schema design has benefits compared to a purely relational or purely JSON solution. The query translation mechanism translates Gremlin queries with no side effects into SQL queries so that one can leverage relational query optimizers. \cite{Sun:2015}
+
+\clearpage
+
+\subsection{GraphiQL}
+GRAPHiQL is an intuitive query language for graph analytics, which allows developers to reason in terms of nodes and edges rather than the tables and joins which are used in relational databases. GRAPHiQL provides key graph constructs such as looping, recursion, and neighborhood operations. At runtime, GRAPHiQL compiles graph programs into efficient SQL queries that can run on any relational database. \cite {Graphiql}
+
+\clearpage
+
+\section{Summary}
+
+\subsection{Conclusion}
+
+\subsection{Acknowledgements}
+I would like to thank my supervisors John Liagouris, Desislava Dimitrova and Moritz Hoffmann.
+
+\clearpage
+
+
+\bibliography{MA}{}
+\bibliographystyle{plain}
+\end{document}
