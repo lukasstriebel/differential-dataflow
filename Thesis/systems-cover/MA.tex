@@ -91,14 +91,31 @@ The most commonly used macros were:
 \item alt\_complete!: Takes a set of parsers as input and applies them until one succeeds. Returns the result of the first successful parser.
 \item opt!: Takes a parsers as input and makes it optional. Returns None if parser was unsuccessful or Some otherwise.
 \item tag!: Parses a specific String. Aborts if the String is not found.
-\item named!: Faciliates the creation of new custom parsers.  
+\item named!: Faciliates the creation of new custom parsers.
+\item many0!: Applies the parser 0 or more times.
+\item many1!: Applies the parser 1 or more times. 
 \end{itemize}
 
+As mentioned in Section 2.1, the Parser has to recognize the following 4 clauses: Path definitions, select, where, solution modifier.
+\\The main parse function therefore looks:
+\begin{lstlisting}
+named!(pgql_query<Query>,
+    do_parse!(
+	paths: opt!(paths) >>
+	space >>
+	select: select_clause >>
+        space >>
+        vvhere: where_clause >>
+	space >>
+        solmod: opt!(solutionModifier) >>
+        (Query { select: select, vvhere: vvhere, paths: paths, solmod: solmod})
+ \end{lstlisting} 
 \clearpage
 
 \subsection{Path Clause}
 
-The Path Clause is a list of definitions. Each Path definition starts with a name, followed by `:=' and then a path description. The path defined in this clause can then be reused in the Where Clause.
+The Path Clause is a list of definitions. Each Path definition starts with a name, followed by `:=' and then a path description. The path defined in this clause can then be reused in the Where Clause. One of many difficulties encountered while writing the parser, is the ability to differentiate between a single path definition and multiple ones, seperated by commas.
+
 
 \clearpage
 \subsection{Select Clause}
@@ -156,6 +173,7 @@ named!(literal<Literal>,
 \clearpage
 
 \subsection{Graph Loader}
+The Loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differntial Dataflow, an entirely new parser had to be written.
  
 \clearpage
 

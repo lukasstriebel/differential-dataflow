@@ -92,11 +92,23 @@ pub struct Graph{
     edges: Vec <GraphEdge>,
 }
 
-#[derive(Debug,PartialEq, Clone, Abomonation)]
+#[derive(PartialEq, Clone, Abomonation)]
 pub enum Literal {
   Str(String),
   Float(f32),
   Boolean(bool),
+}
+
+impl fmt::Debug for Literal
+{
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result
+    {
+        match *self {
+            Literal::Str(ref value) => write!(f,"{}",value),
+            Literal::Float(ref value) => write!(f,"{}",value),
+            Literal::Boolean(ref value) => write!(f,"{}",value)
+        }
+    }
 }
 
 impl Literal {
@@ -609,27 +621,37 @@ named!(select_clause<Vec<SelectElem> >,
     )
 );
 
-
 named!(select_elems<Vec<SelectElem> >,
     many1!(
         alt_complete!(
-            aggregate => {|aggregation| 
-                        SelectElem::Aggregation(aggregation)} |
             do_parse!(
-                v: variable_name >>
+                elem: select_elem >>
                 char!(',') >>
-                opt!(space) >> ({
-                    let (name, field) = v;
-                        let a = Attribute{name: name, field: field};
-                        SelectElem::Attribute(a)})
-            )  
-            | variable_name => {|v| {let (name, field) = v;
-                        let a = Attribute{name: name, field: field};
-                        SelectElem::Attribute(a)}}
-           
-            | tag_s!("*") => {|_| SelectElem::Star}
+                opt!(space) >>
+                (elem)
+            )  |
+            select_elem
         )
     )    
+);
+
+named!(select_elem<SelectElem>,
+    alt_complete!(
+                aggregate => {|aggregation| 
+                            SelectElem::Aggregation(aggregation)} |
+                do_parse!(
+                    v: variable_name >>
+                     ({
+                        let (name, field) = v;
+                            let a = Attribute{name: name, field: field};
+                            SelectElem::Attribute(a)})
+                )  
+                | variable_name => {|v| {let (name, field) = v;
+                            let a = Attribute{name: name, field: field};
+                            SelectElem::Attribute(a)}}
+               
+                | tag_s!("*") => {|_| SelectElem::Star}
+            )          
 );
 
 //////////////////////////////
@@ -1018,6 +1040,13 @@ fn fold_exprs(initial: Expr, remainder: Vec<(Oper, Expr)>) -> Expr {
 
 named!(aggregate<Aggregation>,
     alt_complete!(
+        do_parse!(
+            tag_no_case_s!("count(*)") >>
+            ({
+                let attribute = Attribute{name: "*".into(), field: "".into()};
+                Aggregation::Count(attribute)
+            })
+            ) |
         do_parse!(
             tag_no_case_s!("count") >>
             variable_name: delimited!(tag!("("), variable_name, tag!(")")) >>
@@ -1440,6 +1469,7 @@ fn int_to_static_str(s: usize) -> &'static usize {
 
 fn main() { 
 
+    let timer = Instant::now();
     //let graph_filepath: RefCell<String>= RefCell::new(std::env::args().nth(2).unwrap());
     let graph_filepath: String = std::env::args().nth(1).unwrap();
     let st = string_to_static_str(graph_filepath);
@@ -1458,7 +1488,7 @@ fn main() {
         // define a new computational scope, in which to run the query
         timely::execute_from_args(std::env::args().skip(2), move |computation| {
 
-            let timer = Instant::now();
+            
 
             // logic goes here
             let (mut edges, mut vertices, probe) = computation.scoped(|scope| {
@@ -1518,13 +1548,15 @@ fn main() {
                 println!("Graph Loading: {:?}\n\n", timer2.elapsed());
             }
 
-
+            let timer3 = Instant::now();
             // advance epoch
             edges.advance_to(1);
             vertices.advance_to(1);
             // do the job
             computation.step_while(|| probe.lt(edges.time()));
 
+            println!("Evaluation time: {:?}\n\n", timer3.elapsed());
+                        
 
             if computation.index() == 0 {
                 println!("Total Execution: {:?}\n\n", timer.elapsed());
@@ -1540,7 +1572,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
     vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DiffEdge> where G::Timestamp: Lattice {
     
     let query = pgql_query(query_string.as_bytes());
-    let timer = Instant::now();
+    
     match query {
         IResult::Done(_, (select,vvhere)) => {
             let mut connections = Vec::new();
@@ -1661,14 +1693,14 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                 for projection in &select{
                                 match projection {
                                     &SelectElem::Star => {
-                                        /*for (ref key,ref plan) in &plans {
+                                        for (ref key,ref plan) in &plans {
                                         plan.inspect(|&(ref x,_)| println!("{:?}", x));
-                                    }*/
+                                        }
                                     },
                                     &SelectElem::Attribute(ref attr) => {
-                                        /*let vertices = plans.get(&attr.name).unwrap();
+                                        let vertices = plans.get(&attr.name).unwrap();
                                         let field = string_to_static_str(attr.field.clone());
-                                        vertices.inspect(move |&(ref x,_)| println!("{:?}", x.get(field.into()).unwrap()));*/
+                                        vertices.inspect(move |&(ref x,_)| println!("{:?}", x.get(field.into()).unwrap()));
                                        
                                     },
                                     &SelectElem::Aggregation(ref aggr) => {
@@ -1681,7 +1713,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                                             count = count + 1;
                                                         }                                                        
                                                         output.push(((),count));
-                                                    });//.inspect(|&(_, ref x)| println!("{:?}", x));
+                                                    }).inspect(|&(_, ref x)| println!("{:?}", x));
                                                 
                                             },
                                             &Aggregation::Max(ref attr) => {
@@ -1733,13 +1765,12 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                                     }                                                
                                                     output.push(((),sum as i32 /count ));
                                                 }).inspect(|&(_, ref x)| println!("{:?}", x));
-                                            }                                        
-                                        
+                                            }                             
                                         }
                                     },
                                 }
                             }
-                        println!("Evaluation time: {:?}\n\n", timer.elapsed());
+                        //println!("Evaluation time: {:?}\n\n", timer.elapsed());
             }
 
             else{
@@ -1797,14 +1828,14 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                         for projection in &select{
                             match projection {
                                 &SelectElem::Star => {
-                                    //list.inspect(|&(ref x,_)| println!("{:?}", x));
+                                    list.inspect(|&(ref x,_)| println!("{:?}", x));
                                 },
                                 &SelectElem::Attribute(ref attr) => {
-                                    /*let strng = string_to_static_str(attr.name.clone());
+                                    //let strng = string_to_static_str(attr.name.clone());
                                     let field = string_to_static_str(attr.field.clone());
-                                    let id = names.get(&attr.name).unwrap();
-                                    list.inspect(move |&(ref x,_)| println!("{:?}", x[0].get(&field.into()).unwrap()));*/
-                                    //println!("{:?}", x[0].get(&attr.field).unwrap() );
+                                    let id = *(names.get(&attr.name).unwrap());
+                                    list.inspect(move |&(ref x,_)| println!("{:?}", x[id].get(&field.into()).unwrap()));
+                                    
                                     
                                 },
                                 &SelectElem::Aggregation(ref aggr) => {
@@ -1816,55 +1847,59 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                                             count = count + 1;
                                                         }                                                        
                                                         output.push(((),count));
-                                                    });//.inspect(|&(_, ref x)| println!("{:?}", x));
+                                                    }).inspect(|&(_, ref x)| println!("{:?}", x));
                                                 
                                             },
-                                            &Aggregation::Sum(ref attr) => {
-                                                let field = string_to_static_str(attr.field.clone());
-                                                list.map(|x| (1, x)).group(move |key, vals, output| {
-                                                    let mut sum = 0.0;
-                                                    for (val,_) in vals {
-                                                        sum = sum + val[0].get(&field.into()).unwrap().as_float();
-                                                    }                                                
-                                                    output.push(((),sum as i32));
-                                                }).inspect(|&(_, ref x)| println!("{:?}", x));                                                
-                                            },
-                                            &Aggregation::Avg(ref attr) => {                                           
-                                                let field = string_to_static_str(attr.field.clone());
-                                                list.map(|x| (1, x)).group(move |key, vals, output| {
-                                                    let mut count = 0;
-                                                    let mut sum = 0.0;
-                                                    for (val,_) in vals {
-                                                        count = count + 1;
-                                                        sum = sum + val[0].get(&field.into()).unwrap().as_float();
-                                                    }                                                
-                                                    output.push(((),sum as i32 /count ));
-                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
-                                            },
-                                            &Aggregation::Max(ref attr) => {
-                                                let field = string_to_static_str(attr.field.clone());
-                                                list.map(|x| (1, x)).group(move |key, vals, output| {
-                                                    let mut max = vals.next().unwrap().0[0].get(&field.into()).unwrap().as_float();
-                                                    for (val,_) in vals {
-                                                        let value = val[0].get(&field.into()).unwrap().as_float();
-                                                        if value > max{
-                                                        max = value;}
-                                                    }                                                
-                                                    output.push(((), max as  i32));
-                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
-                                            },
-                                            &Aggregation::Min(ref attr) => {
-                                                let field = string_to_static_str(attr.field.clone());
-                                                list.map(|x| (1, x)).group(move |key, vals, output| {
-                                                    let mut min = vals.next().unwrap().0[0].get(&field.into()).unwrap().as_float();
-                                                    for (val,_) in vals {
-                                                        let value = val[0].get(&field.into()).unwrap().as_float();
-                                                        if value < min{
-                                                        min = value;}
-                                                    }                                                
-                                                    output.push(((), min as  i32));
-                                                }).inspect(|&(_, ref x)| println!("{:?}", x));
-                                            }
+                                        &Aggregation::Sum(ref attr) => {
+                                            let field = string_to_static_str(attr.field.clone());
+                                            let id = *(names.get(&attr.name).unwrap());
+                                            list.map(|x| (1, x)).group(move |key, vals, output| {
+                                                let mut sum = 0.0;
+                                                for (val,_) in vals {
+                                                    sum = sum + val[id].get(&field.into()).unwrap().as_float();
+                                                }                                                
+                                                output.push(((),sum as i32));
+                                            }).inspect(|&(_, ref x)| println!("{:?}", x));                                                
+                                        },
+                                        &Aggregation::Avg(ref attr) => {                                           
+                                            let field = string_to_static_str(attr.field.clone());
+                                            let id = *(names.get(&attr.name).unwrap());
+                                            list.map(|x| (1, x)).group(move |key, vals, output| {
+                                                let mut count = 0;
+                                                let mut sum = 0.0;
+                                                for (val,_) in vals {
+                                                    count = count + 1;
+                                                    sum = sum + val[id].get(&field.into()).unwrap().as_float();
+                                                }                                                
+                                                output.push(((),sum as i32 /count ));
+                                            }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                        },
+                                        &Aggregation::Max(ref attr) => {
+                                            let field = string_to_static_str(attr.field.clone());
+                                            let id = *(names.get(&attr.name).unwrap());
+                                            list.map(|x| (1, x)).group(move |key, vals, output| {
+                                                let mut max = vals.next().unwrap().0[0].get(&field.into()).unwrap().as_float();
+                                                for (val,_) in vals {
+                                                    let value = val[id].get(&field.into()).unwrap().as_float();
+                                                    if value > max{
+                                                    max = value;}
+                                                }                                                
+                                                output.push(((), max as  i32));
+                                            }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                        },
+                                        &Aggregation::Min(ref attr) => {
+                                            let field = string_to_static_str(attr.field.clone());
+                                            let id = *(names.get(&attr.name).unwrap());
+                                            list.map(|x| (1, x)).group(move |key, vals, output| {
+                                                let mut min = vals.next().unwrap().0[0].get(&field.into()).unwrap().as_float();
+                                                for (val,_) in vals {
+                                                    let value = val[id].get(&field.into()).unwrap().as_float();
+                                                    if value < min{
+                                                    min = value;}
+                                                }                                                
+                                                output.push(((), min as  i32));
+                                            }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                        }
                                     }
 
                                 },
@@ -1872,7 +1907,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                         }
                         //list.inspect(move |_| {count = count + 1; println!("{:?}", count);});
                         //println!("Return tuples = {:?}\nEvaluation took: {:?}\n\n",count, timer.elapsed());
-                        println!("Evaluation time: {:?}\n\n", timer.elapsed());
+                        //println!("Evaluation time: {:?}\n\n", timer.elapsed());
                         
                     },
                     None => {println!("No vertices match your criteria");},
