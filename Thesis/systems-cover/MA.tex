@@ -71,8 +71,33 @@ The Property Graph Query Language (PGQL) was developed by Oskar van Rest at Orac
 \item Solution Modifier Clause (optional)
 \end{itemize}
 
-In the Path Clause custom path patterns are defined, which are to be used again in the Where Clause.\\\\
-The Select Clause bears great similarity to the SQL one. Here, the set of properties one wishes to retrieve is defined.\\\\
+In the Path Clause custom path patterns are defined, which are to be used again in the Where Clause.\\
+\textbf{Example:}\\
+\begin{lstlisting}
+PATH connects_to := (:Generator) -[:has_connector]-> (:Connector WITH status = 'OPERATIVE') <-[:has_connector]- (:Generator)
+ \end{lstlisting}
+The Select Clause bears great similarity to the SQL one. Here, the set of properties one wishes to retrieve is defined. Possible Selections are either\\
+\begin{itemize} 
+\item everything, indicated by the use of * 
+\item certain attributes of edges and/or vertices
+\item Aggregation of certain attributes of edges and/or vertices.
+\end{itemize}
+ Currently, there are five types of aggregations supported:\\
+ \begin{itemize} 
+\item COUNT, returns the number of tuples in the solution 
+\item MAX, returns the maximum value of an attribute in any tuple. The specified attribute has to be numeric.
+\item MIN, returns the minimum value of an attribute in any tuple. The specified attribute has to be numeric.
+\item SUM, returns the sum of an attribute over all the tuples. The specified attribute has to be numeric.
+\item AVG, returns the average of an attribute over all the tuple. The specified attribute has to be numeric.
+\end{itemize}
+\textbf{Example:}\\
+\begin{lstlisting}
+SELECT v.name, AVG(v.age)
+ \end{lstlisting} 
+The most complex part of the query is the Where Clause. In this section, all the requirements that the edges and vertices of the result set have to fulfill are specified.
+
+
+
  
 
 \clearpage
