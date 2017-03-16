@@ -22,24 +22,27 @@
 SELECT * WHERE u.label() = 'switch', u.position = 'access'
 \end{verbatim}
 \includegraphics[width=1\textwidth]{box/q1}
-\includegraphics[width=1\textwidth]{graph1}
-Peak Memory: 377'840 kb \\
+\textbf{Peak Memory: 377'840 kb}
+\textbf{Result size: 1'152} 
+\includegraphics[width=0.4\textwidth]{graph1}
 2 simple selections, 0 joins. One pass through the vertices collection is enough to produce the result.
 \clearpage
 \textbf{Query2}\\
 \begin{verbatim}
 SELECT * WHERE (n) -[e with weight < 4]-> (m)\end{verbatim}
 \includegraphics[width=1\textwidth]{box/q2}
-\includegraphics[width=1\textwidth]{graph2}
-Peak Memory: 3'597'452 kb \\
+\textbf{Peak Memory: 3'597'452 kb}
+\textbf{Result size: 36'542}
+\includegraphics[width=0.6\textwidth]{graph2}
 2 Joins and 1 Selection. The joins are not very expensive since we only use about 30\% of the edges.
 \clearpage
 \textbf{Query3}\\
 \begin{verbatim}
 SELECT * WHERE (n:switch) -> (m with position = 'distribution')\end{verbatim}
 \includegraphics[width=1\textwidth]{box/q3}
-\includegraphics[width=1\textwidth]{graph3}
-Peak Memory: 1'433'376 kb \\
+\textbf{Peak Memory: 1'433'376 kb}
+\textbf{Result size: 55'296}
+\includegraphics[width=0.6\textwidth]{graph3}
 2 Joins and 2 Selections. I expected this query to be a little bit slower since we are using all the edges in the joins, but it is only a tiny bit slower than Query 2.
 \clearpage
 \textbf{Query4}\\
@@ -47,8 +50,9 @@ Peak Memory: 1'433'376 kb \\
 SELECT * WHERE (n with position = 'distribution')
 -[e with weight > 8]-> (m with position = 'access')\end{verbatim}
 \includegraphics[width=1\textwidth]{box/q4}
-\includegraphics[width=1\textwidth]{graph4}
-Peak Memory: 1'114'896 kb \\
+\textbf{Peak Memory: 1'114'896 kb}
+\textbf{Result size: 3'097}
+\includegraphics[width=0.6\textwidth]{graph4}
 2 Joins and 3 Selections. Even though this query has more constraints than Query 2 and 3, it is faster since we only use 10\% of the edges in the joins. 
 \clearpage
 \textbf{Query5}\\
@@ -56,8 +60,9 @@ Peak Memory: 1'114'896 kb \\
 SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution')
  -> (w WITH position = 'core')\end{verbatim}
 \includegraphics[width=1\textwidth]{box/q5}
+\textbf{Peak Memory: 3'797'976 kb}
+\textbf{Result size: 663'552}
 \includegraphics[width=1\textwidth]{graph5}
-Peak Memory: 3'797'976 kb \\
 4 Joins and 3 Selections. The last 3 queries all contain multiple query edges and are much slower. Since there is no selection on the edge, this particular query is quite slow even though it has "only" 4 joins.
 \clearpage
 \textbf{Query6}\\
@@ -66,8 +71,9 @@ SELECT * WHERE (u WITH position = 'access')
  -[e with weight  < 2]-> (v WITH position = 'distribution')
  -[f with weight > 8]-> (w WITH position = 'core')\end{verbatim}
 \includegraphics[width=1\textwidth]{box/q6}
+\textbf{Peak Memory: 1'573'940 kb}
+\textbf{Result size: 8'334}
 \includegraphics[width=1\textwidth]{graph6}
-Peak Memory: 1'573'940 kb \\
 4 Joins and 5 Selections. Like query 4, the evaluation time goes down as we add more constraints on the edges. Since we have a lot less tuples in the 3rd and 4th join, this query is faster than previous one.
 \clearpage
 \textbf{Query7}\\
@@ -77,8 +83,9 @@ SELECT * WHERE (u WITH position = 'access')
  -[f with weight  < 2]-> (w WITH position = 'core')
  -[g with weight  < 2]-> (x WITH position = 'distribution')\end{verbatim}
 \includegraphics[width=1\textwidth]{box7}
+\textbf{Peak Memory: 2'210'824 kb}
+\textbf{Result size: 49'956}
 \includegraphics[width=1\textwidth]{graph7}
-Peak Memory: 2'210'824 kb \\
 6 Joins and 7 Selections. This is probably the most interesting result. We add two more joins to the query, but we restrict the number of edges used in all the joins dramatically. This consequently leads to a surprisingly low evaluation time, almost on the level as query 5. This demonstrates how big the impact of the joins is for the evaluation time.
 \clearpage
 \textbf{Query 8}\\
