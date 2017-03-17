@@ -16,7 +16,7 @@
   showstringspaces=false,
   columns=flexible,
   basicstyle={\small\ttfamily},
-  numbers=none,
+  numbers=left,
   numberstyle=\tiny\color{gray},
   keywordstyle=\color{blue},
   commentstyle=\color{green},
@@ -40,8 +40,8 @@
 \covernum{164}
 \covertitle{A High-level Graph Query Language Interface for Differential Dataflow}
 \coverauthor{Lukas Striebel}
-\coverdate{06.10.2016 - 06.04.2017}
-\coversupervisedby{Prof.\ Timothy Roscoe, John Liagouris, Desislava Demitrova, Moritz Hoffmann}
+\coverdate{October 2016 - April 2017}
+\coversupervisedby{Prof.\ Timothy Roscoe\\Dr. Ioannis Liagouris\\Dr. Desislava Demitrova\\Moritz Hoffmann}
 
 
 \begin{document}
@@ -49,7 +49,7 @@
 \hspace{60mm}
 \begin{center}
  \textbf{Abstract} \end{center}
-
+In today's business world, Social Networks have become one of the most important if not the most important platforms to advertise your product and gain new customers. Graph databases have been increasing in popularity in comparison to traditional relational databases. This tendency has given birth to the need of powerful and graph datawarehouses and query evaluators. Thus, we present cool program.
 
 
 \clearpage
@@ -57,10 +57,14 @@
 \clearpage
 \section{Introduction}
 \subsection{Motivation}
-
+\subsection{Structure of the Thesis}
+The Thesis has the following layout:\\
+First, we give an overview of the technologies used in the Thesis.\\
+We continue by giving a detailed explanation of the query parser and query evaluator. Next, we describe the experiments that were run in order to determine the performance of the program. Finally, we draw our conclusion and show potential future work.
 \clearpage
 
 \section{Background}
+In this section, all the relevant technologies used in the Thesis are explained.
 \subsection{The Property Graph Query Language}
 
 The Property Graph Query Language (PGQL) was developed by Oskar van Rest at Oracle. \cite{vanRest:2016} PGQL enables developers to write intuitive path queries over a property graph. A PGQL query consists of 4 clauses, two of them are optional.
@@ -95,10 +99,14 @@ The Select Clause bears great similarity to the SQL one. Here, the set of proper
 SELECT v.name, AVG(v.age)
  \end{lstlisting} 
 The most complex part of the query is the Where Clause. In this section, all the requirements that the edges and vertices of the result set have to fulfill are specified.
+\textbf{Example:}\\
+\verbatism{
+  WHERE v.name = 'Alice', v.age > 30
+}
 
-
-
- 
+\clearpage
+\subsection{Dataflow Computation}
+Dataflow oriented computation is a young field in Computer Science.
 
 \clearpage
 
@@ -108,8 +116,14 @@ Differential Dataflow was developed by Frank McSherry at Microsoft. \cite{Differ
 Rather than rewriting the entire data every time a change occurs, Differential Dataflow only keeps track of the changes made to the data. This allows for huge timesavings when executing the same operation multiple times on different data, since the results of previous computations can be reused.
 \clearpage
 
+\subsection{The Rust Programming Language}
+Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the 2009, Mozilla offically began sponsering th eproject.\\
+Rust has been praised as it combines . The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, host by the Stack Overflow Community.
+Rust is completly opensource, and a big part of the code was written by members of the community.
+\clearpage
+
 \section{Parser}
-The Parser is build using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process.\\\\
+In the following, we describe how our parser is build. The Parser is build using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process.\\\\
 The most commonly used macros were:
 \begin{itemize} 
 \item do\_parse!: Takes a list of parsers as inputs and applies them sequentially, finally returns a tupel.
@@ -152,7 +166,8 @@ The Select Clause of PGQL is very similar to the SQL one. Started by the keyword
 The Where Clause consists of a list of Constraints. Each constraint defines either a path or value requirement that has to be fulfilled by the respective vertex or edge.
  
  \subsubsection{Path Constraints}
- A Path Constraint requires a vertex to have certain edges to other vertices. For example, the constraint: (v) -> (u) requires that the vertex v has a direct edge to the vertex v.
+ Path Constraints are patterns, which are matched against the graph. If a set vertices does not fit the pattern, it is discarded.\\
+ A typical Path Constraint requires a vertex to have certain edges to other vertices. For example, the constraint: (v) -> (u) requires that the vertex v has a direct edge to the vertex v.
  
  \subsubsection{Value Constraints}
  Value Constraints are constraints on attributes of the Vertex, e.g. name = `Alice' or age \textless  40. Every Value Constraint has to include one or multiple vertex attributes, and one or more Literals. Literals are raw values, and come in 3 types:
@@ -193,15 +208,25 @@ named!(literal<Literal>,
  
 \clearpage
 
+
+
 \section{Query Evaluation}
 
 \subsection{Graph Loader}
-The Loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differntial Dataflow, an entirely new parser had to be written.
- 
+The Loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differntial Dataflow, an entirely new parser had to be written. This parser was also built using nom. In order fo it to properly recognize a graph, the graph has to be supplied in the Vertex-Edge-List format. This format gives us a text file (.txt), which contains two lists. First, all the vertices and their attributes are described. The vertices are ordered ascing according to their ID. The IDs have to start at 1 and must be continuous.
+\subsection{Construction of the Dataflow}
+
 \clearpage
 
-\section{Benchmarking}
 
+
+\section{Benchmarking}
+All experiments were run on server. The machine contained 48 Amd cores. The installed memory was 128 GB of RAM.\\
+In the experiment, four different topologies were used:\\
+\textbf{Large Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
+\textbf{Small Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
+\textbf{Large Jellyfish}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
+\textbf{Small Jellyfish}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
 \clearpage
 
 
@@ -275,7 +300,7 @@ SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution'
 \clearpage
 
 \section{Related Work}
-
+In this chapter we give an overview of other existing graph databases and query evluators.
 
 \subsection{PQL}
 A program query language, PQL for short, is a source language-independent notation to specify program queries and program views. PQL is used as an interface to Static Program Analyzers (SPA), interactive tools that enhance program understanding by answering queries about programs. Queris on global program design as well as searches for detail code patterns are both possible in PQL. Program queries and patterns supported by other notations described in literature and those supported by commercial tools can be written simply and naturally in PQL.\cite {PQL}
