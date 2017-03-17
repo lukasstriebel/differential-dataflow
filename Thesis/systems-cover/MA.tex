@@ -17,10 +17,7 @@
   columns=flexible,
   basicstyle={\small\ttfamily},
   numbers=left,
-  numberstyle=\tiny\color{gray},
-  keywordstyle=\color{blue},
-  commentstyle=\color{green},
-  stringstyle=\color{blue},
+  numberstyle=\tiny,
   breaklines=true,
   breakatwhitespace=true,
   tabsize=3
@@ -100,9 +97,9 @@ SELECT v.name, AVG(v.age)
  \end{lstlisting} 
 The most complex part of the query is the Where Clause. In this section, all the requirements that the edges and vertices of the result set have to fulfill are specified.
 \textbf{Example:}\\
-\verbatism{
+\begin{verbatim}
   WHERE v.name = 'Alice', v.age > 30
-}
+\end{verbatim}
 
 \clearpage
 \subsection{Dataflow Computation}
@@ -223,9 +220,9 @@ The Loading of the graph plays a major part of the entire program execution time
 \section{Benchmarking}
 All experiments were run on server. The machine contained 48 Amd cores. The installed memory was 128 GB of RAM.\\
 In the experiment, four different topologies were used:\\
-\textbf{Large Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
-\textbf{Small Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
-\textbf{Large Jellyfish}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
+\textbf{Large Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
+\textbf{Small Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
+\textbf{Large Jellyfish}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
 \textbf{Small Jellyfish}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
 \clearpage
 

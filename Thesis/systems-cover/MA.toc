@@ -1,26 +1,30 @@
 \select@language {english}
 \contentsline {section}{\numberline {1}Introduction}{3}
 \contentsline {subsection}{\numberline {1.1}Motivation}{3}
+\contentsline {subsection}{\numberline {1.2}Structure of the Thesis}{3}
 \contentsline {section}{\numberline {2}Background}{4}
 \contentsline {subsection}{\numberline {2.1}The Property Graph Query Language}{4}
-\contentsline {subsection}{\numberline {2.2}Differential Dataflow}{6}
-\contentsline {section}{\numberline {3}Parser}{7}
-\contentsline {subsection}{\numberline {3.1}Path Clause}{8}
-\contentsline {subsection}{\numberline {3.2}Select Clause}{9}
-\contentsline {subsection}{\numberline {3.3}Where Clause}{10}
-\contentsline {subsubsection}{\numberline {3.3.1}Path Constraints}{10}
-\contentsline {subsubsection}{\numberline {3.3.2}Value Constraints}{10}
-\contentsline {subsection}{\numberline {3.4}Solution Modifier Clause}{11}
-\contentsline {section}{\numberline {4}Query Evaluation}{12}
-\contentsline {subsection}{\numberline {4.1}Graph Loader}{13}
-\contentsline {section}{\numberline {5}Benchmarking}{14}
-\contentsline {section}{\numberline {6}Results and Discussion}{15}
-\contentsline {section}{\numberline {7}Related Work}{16}
-\contentsline {subsection}{\numberline {7.1}PQL}{16}
-\contentsline {subsection}{\numberline {7.2}Green-Marl}{17}
-\contentsline {subsection}{\numberline {7.3}Gremlin}{18}
-\contentsline {subsection}{\numberline {7.4}SQLGraph}{19}
-\contentsline {subsection}{\numberline {7.5}GraphiQL}{20}
-\contentsline {section}{\numberline {8}Summary}{21}
-\contentsline {subsection}{\numberline {8.1}Conclusion}{21}
-\contentsline {subsection}{\numberline {8.2}Acknowledgements}{21}
+\contentsline {subsection}{\numberline {2.2}Dataflow Computation}{6}
+\contentsline {subsection}{\numberline {2.3}Differential Dataflow}{7}
+\contentsline {subsection}{\numberline {2.4}The Rust Programming Language}{8}
+\contentsline {section}{\numberline {3}Parser}{9}
+\contentsline {subsection}{\numberline {3.1}Path Clause}{10}
+\contentsline {subsection}{\numberline {3.2}Select Clause}{11}
+\contentsline {subsection}{\numberline {3.3}Where Clause}{12}
+\contentsline {subsubsection}{\numberline {3.3.1}Path Constraints}{12}
+\contentsline {subsubsection}{\numberline {3.3.2}Value Constraints}{12}
+\contentsline {subsection}{\numberline {3.4}Solution Modifier Clause}{13}
+\contentsline {section}{\numberline {4}Query Evaluation}{14}
+\contentsline {subsection}{\numberline {4.1}Graph Loader}{14}
+\contentsline {subsection}{\numberline {4.2}Construction of the Dataflow}{14}
+\contentsline {section}{\numberline {5}Benchmarking}{15}
+\contentsline {section}{\numberline {6}Results and Discussion}{16}
+\contentsline {section}{\numberline {7}Related Work}{25}
+\contentsline {subsection}{\numberline {7.1}PQL}{25}
+\contentsline {subsection}{\numberline {7.2}Green-Marl}{26}
+\contentsline {subsection}{\numberline {7.3}Gremlin}{27}
+\contentsline {subsection}{\numberline {7.4}SQLGraph}{28}
+\contentsline {subsection}{\numberline {7.5}GraphiQL}{29}
+\contentsline {section}{\numberline {8}Summary}{30}
+\contentsline {subsection}{\numberline {8.1}Conclusion}{30}
+\contentsline {subsection}{\numberline {8.2}Acknowledgements}{30}
