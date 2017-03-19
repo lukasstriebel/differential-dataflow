@@ -26,7 +26,7 @@
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[LE,RO]{A High-level Graph Query Language Interface for Differential Dataflow}
-\fancyhead[RE,LO]{Lukas Striebel}
+
 
 \fancyfoot[RE,lO]{Master Thesis}
 \fancyfoot[LE,RO]{\thepage}
@@ -55,9 +55,9 @@ In today's business world, Social Networks have become one of the most important
 \section{Introduction}
 \subsection{Motivation}
 \subsection{Structure of the Thesis}
-The Thesis has the following layout:\\
-First, we give an overview of the technologies used in the Thesis.\\
-We continue by giving a detailed explanation of the query parser and query evaluator. Next, we describe the experiments that were run in order to determine the performance of the program. Finally, we draw our conclusion and show potential future work.
+The Thesis has the following structure:\\
+First, we give an overview of the technologies used in the Thesis in Section 2.\\
+We continue by giving a detailed explanation of the query parser  in Chapter 3. In Section 4, we explain how the program sets up the dataflows according to the query. Next, we describe the experiments that were run in order to determine the performance of the program in Chapter 5. Finally, we draw our conclusion, provide an outlook and show potential for future work.
 \clearpage
 
 \section{Background}
@@ -228,56 +228,248 @@ In the experiment, four different topologies were used:\\
 
 
 \section{Results and Discussion}
+
 \textbf{Things to consider}\\\\
 1. Weight is an attribute of the edges and (as far as I know) uniformly distributed from 1 to 9. The selection weight \textless 2 will therefore remove around 90\% of all edges., which speeds up the join process immensely.\\\\
 2. Since Timely does not like HashMaps at all, attributes of vertices and edges are store in a Vector of (String, Literal) tuples. However, in order to do a selection, this Vector has to be transformed back into a HashMap, which takes some time. Therefore  the more selection a query contains, the slower it should be.\\\\
 3. One Edge in the query triggers two joins in the evaluation,  because we have to join the edge collection twice with the vertex collection.\\\\
-4. These are the results of the large fattree, with nearly 60'000 vertices and 50'000 bidirectional edge (ergo 100'000 in the collection). The results look very similar for the smaller fattree topology, just a bit smaller in magnitude.\\\\
+4. These are the results of the large fattree, with nearly 60'000 vertices and 50'000 bidirectional edge (ergo 100'000 in the collection). The results look very similar for the smaller fattree topology, just a bit smaller in magnitude.\\\\\\
 \textbf{Overview}
 
 
-\includegraphics[width=1\textwidth]{overview}
+\includegraphics[width=1\textwidth]{overview3}
+
 \clearpage
+
+\clearpage
+
 \textbf{Query 1}\\
 \begin{verbatim}
 SELECT * WHERE u.label() = 'switch', u.position = 'access'
 \end{verbatim}
-\includegraphics[width=1\textwidth]{q1}
-2 simple selections, 0 joins. One pass through the vertices collection is enough to produce the result. 200 milliseconds evaluation time.
+\textbf{Peak Memory: 377'840 kb}\\
+\textbf{Result size: 1'152} \\
+2 simple selections, 0 joins. One pass through the vertices collection is enough to produce the result.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q1}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q1}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q1}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q1}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
+
+\includegraphics[width=0.4\textwidth]{graph1}
 \clearpage
 \textbf{Query2}\\
 \begin{verbatim}
 SELECT * WHERE (n) -[e with weight < 4]-> (m)\end{verbatim}
-\includegraphics[width=1\textwidth]{q2}
-2 Joins and 1 Selection. The joins are not very expensive since we only use about 30\% of the edges. 700 milliseconds evaluation time.
+
+\textbf{Peak Memory: 3'597'452 kb}\\
+\textbf{Result size: 36'542}\\
+2 Joins and 1 Selection. The joins are not very expensive since we only use about 30\% of the edges.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q2}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q2}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q2}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q2}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
+
+\includegraphics[width=0.6\textwidth]{graph2}
 \clearpage
 \textbf{Query3}\\
 \begin{verbatim}
 SELECT * WHERE (n:switch) -> (m with position = 'distribution')\end{verbatim}
-\includegraphics[width=1\textwidth]{q3}
+
+\textbf{Peak Memory: 1'433'376 kb}\\
+\textbf{Result size: 55'296}\\
 2 Joins and 2 Selections. I expected this query to be a little bit slower since we are using all the edges in the joins, but it is only a tiny bit slower than Query 2.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q3}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q3}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q3}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q3}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
+\includegraphics[width=0.6\textwidth]{graph3}
 \clearpage
 \textbf{Query4}\\
 \begin{verbatim}
 SELECT * WHERE (n with position = 'distribution')
 -[e with weight > 8]-> (m with position = 'access')\end{verbatim}
-\includegraphics[width=1\textwidth]{q42}
+
+\textbf{Peak Memory: 1'114'896 kb}\\
+\textbf{Result size: 3'097}\\
 2 Joins and 3 Selections. Even though this query has more constraints than Query 2 and 3, it is faster since we only use 10\% of the edges in the joins. 
 \clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q4}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q4}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q4}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q4}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
+\clearpage
+
+\includegraphics[width=0.6\textwidth]{graph4}\clearpage
 \textbf{Query5}\\
 \begin{verbatim}
 SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution')
  -> (w WITH position = 'core')\end{verbatim}
-\includegraphics[width=1\textwidth]{q5}
+\textbf{Peak Memory: 3'797'976 kb}\\
+\textbf{Result size: 663'552}\\
 4 Joins and 3 Selections. The last 3 queries all contain multiple query edges and are much slower. Since there is no selection on the edge, this particular query is quite slow even though it has "only" 4 joins.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q5}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q5}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q5}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q5}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
+
+\includegraphics[width=1\textwidth]{graph5}
 \clearpage
 \textbf{Query6}\\
 \begin{verbatim}
 SELECT * WHERE (u WITH position = 'access')
  -[e with weight  < 2]-> (v WITH position = 'distribution')
  -[f with weight > 8]-> (w WITH position = 'core')\end{verbatim}
-\includegraphics[width=1\textwidth]{q6}
+\textbf{Peak Memory: 1'573'940 kb}\\
+\textbf{Result size: 8'334}\\
 4 Joins and 5 Selections. Like query 4, the evaluation time goes down as we add more constraints on the edges. Since we have a lot less tuples in the 3rd and 4th join, this query is faster than previous one.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q6}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q6}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q6}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q6}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
+\includegraphics[width=1\textwidth]{graph6}
 \clearpage
 \textbf{Query7}\\
 \begin{verbatim}
@@ -285,8 +477,38 @@ SELECT * WHERE (u WITH position = 'access')
  -[e with weight  < 2]-> (v WITH position = 'distribution')
  -[f with weight  < 2]-> (w WITH position = 'core')
  -[g with weight  < 2]-> (x WITH position = 'distribution')\end{verbatim}
-\includegraphics[width=1\textwidth]{q71}
+\textbf{Peak Memory: 2'210'824 kb}\\
+\textbf{Result size: 49'956}\\
 6 Joins and 7 Selections. This is probably the most interesting result. We add two more joins to the query, but we restrict the number of edges used in all the joins dramatically. This consequently leads to a surprisingly low evaluation time, almost on the level as query 5. This demonstrates how big the impact of the joins is for the evaluation time.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q7}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q7}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q7}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q7}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
+\includegraphics[width=1\textwidth]{graph7}
 \clearpage
 \textbf{Query 8}\\
 \begin{verbatim}
@@ -299,38 +521,37 @@ SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution'
 \section{Related Work}
 In this chapter we give an overview of other existing graph databases and query evluators.
 
+\subsection{SPARQL}
+
 \subsection{PQL}
 A program query language, PQL for short, is a source language-independent notation to specify program queries and program views. PQL is used as an interface to Static Program Analyzers (SPA), interactive tools that enhance program understanding by answering queries about programs. Queris on global program design as well as searches for detail code patterns are both possible in PQL. Program queries and patterns supported by other notations described in literature and those supported by commercial tools can be written simply and naturally in PQL.\cite {PQL}
 
-\clearpage
+
 
 \subsection{Green-Marl}
 Green-Marl is a domain-specific language (DSL) with high level language construct that allow developers to describe their graph analysis algorithms intuitively, but expose the data-level parallelism inherent in the algorithms. Green-Marl comes with its own compiler which translates high-level algorithmic description written in Green-Marl into an efficient C++ implementation by exploiting this exposed datalevel parallelism. Furthermore, the Green-Marl compiler applies a set of optimizations that take advantage of the high-level semantic knowledge encoded in the Green-Marl DSL. Most graph analysis algorithms can be written very intuitively with Green-Marl and experimental results show that the compiler-generated implementation out of such descriptions performs just as well as or better than highly-tuned handcoded implementations.\cite {Greenmarl}
-
-\clearpage
 
 \subsection{Gremlin}
 Developed by the Apache Software Foundation, Gremlin is a query language as well as a graph traversal machine. The graph traversal machine Gremlin consists of three parts that continously interact with each other: first the graph, second the traversal and finally the set of traversers. The traversers move about the graph according to the instructions specified in the traversal, where the result of the computation is the ultimate locations of all halted traversers. A Gremlin machine can be executed over any supporting graph computing system such as an OLTP graph database and/or an OLAP graph processor. The language Gremlin is a functional language implemented in the user’s native programming language. Gremlin supports both imperative and declarative querying.
 \cite{Gremlin}
 
-\clearpage
 
 \subsection{SQLGraph}
 SQLGraph is a Graph Store that combines existing relational optimizers with a novel schema, in an attempt to give better performance for property graph storage and retrieval than popular noSQL graph stores. The schema combines relational storage for adjacency information with JSON storage for vertex and edge attributes. This particular schema design has benefits compared to a purely relational or purely JSON solution. The query translation mechanism translates Gremlin queries with no side effects into SQL queries so that one can leverage relational query optimizers. \cite{Sun:2015}
 
-\clearpage
 
 \subsection{GraphiQL}
 GRAPHiQL is an intuitive query language for graph analytics, which allows developers to reason in terms of nodes and edges rather than the tables and joins which are used in relational databases. GRAPHiQL provides key graph constructs such as looping, recursion, and neighborhood operations. At runtime, GRAPHiQL compiles graph programs into efficient SQL queries that can run on any relational database. \cite {Graphiql}
-
 \clearpage
 
 \section{Summary}
 
 \subsection{Conclusion}
 
+\subsection{Future Work}
 \subsection{Acknowledgements}
-I would like to thank my supervisors John Liagouris, Desislava Dimitrova and Moritz Hoffmann.
+I would like to thank my supervisors John Liagouris, Desislava Dimitrova and Moritz Hoffmann for their continuous support and help. They provided many meaningful suggestions and proposals. Their expertise and experience was invaluable.\\\\
+I would also like to thank Professor Roscoe for taking the time to supervise my thesis.
 
 \clearpage
 

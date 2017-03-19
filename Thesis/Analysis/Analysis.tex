@@ -8,23 +8,57 @@
 \usepackage{listings}
 
 \begin{document}
-\textbf{Things to consider}\\\\
-1. Weight is an attribute of the edges and (as far as I know) uniformly distributed from 1 to 9. The selection weight \textless 2 will therefore remove around 90\% of all edges., which speeds up the join process immensely.\\\\
-2. Since Timely does not like HashMaps at all, attributes of vertices and edges are store in a Vector of (String, Literal) tuples. However, in order to do a selection, this Vector has to be transformed back into a HashMap, which takes some time. Therefore  the more selection a query contains, the slower it should be.\\\\
-3. One Edge in the query triggers two joins in the evaluation,  because we have to join the edge collection twice with the vertex collection.\\\\
-4. These are the results of the large fattree, with nearly 60'000 vertices and 50'000 bidirectional edge (ergo 100'000 in the collection). The results look very similar for the smaller fattree topology, just a bit smaller in magnitude.\\\\\\
+\textbf{Expectations}\\\\
+In all topologies, weight is an attribute of the edges and uniformly distributed from 1 to 9. Consequently, the selection: \begin{verbatim}weight < 2\end{verbatim} will therefore remove around 89\% of all edges. A lesser amount of edges immensely shortens the duration of any subsequent join process.\\ Since joining the entire vertex and edge set is a very costly operation, it is possible that queries with multiple, but restricted joins are faster than such, which contain fewer joins, but do not include any restrictions on the edge set. \\\\
+Another thing to consider is the fact that the attributes of vertices and edges are stored in a Vector of (String, Literal) tuples. We chose this suboptimal implementation since Timely Dataflow does not aprreciate HashMaps at all. However, in order to do a selection, this Vector has to be transformed back into a HashMap, which takes some time. Therefore the more selection a query contains, the slower it should be.\\\\
+It should also be noted that one single edge in the query triggers two joins in the evaluation.Reason being that we have to join the edge collection twice with the vertex collection, in order to determine all adjacent vertices of a given vertex.\\\\
+We ran seven different queries, with each subsequent query being more complex than the preceding one. For each query the resulting dataflow is drawn with the numbers on the edges indicating the size of (intermediate) result set.\\\\
+Throughout all seven queries, the following pattern is noticeable:\\
+The influence of the number of workers behaves unexpectedly, especially for queries 1,4 and 6. In a perfect world, the query latency would be inversely proportionalto the number of workers. However, we only observe this behaviour for query 5, and only for the fattree topologies.\\More often than not, an increase of worker threads leads to a higher latency, especially when the latency is already quite low, in the 50 to 200 millisecond range. We reason this happens because at that level, communication. This \\\\
+The following pages contain detailed boxplots and the dataflows for each of the seven queries.
 \textbf{Overview}
 
 
 \includegraphics[width=1\textwidth]{overview3}
+
+\clearpage
+
+\clearpage
+
 \textbf{Query 1}\\
 \begin{verbatim}
 SELECT * WHERE u.label() = 'switch', u.position = 'access'
 \end{verbatim}
-\includegraphics[width=1\textwidth]{box/q1}
 \textbf{Peak Memory: 377'840 kb}\\
 \textbf{Result size: 1'152} \\
 2 simple selections, 0 joins. One pass through the vertices collection is enough to produce the result.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q1}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q1}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q1}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q1}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
 \clearpage
 
 \includegraphics[width=0.4\textwidth]{graph1}
@@ -32,10 +66,37 @@ SELECT * WHERE u.label() = 'switch', u.position = 'access'
 \textbf{Query2}\\
 \begin{verbatim}
 SELECT * WHERE (n) -[e with weight < 4]-> (m)\end{verbatim}
-\includegraphics[width=1\textwidth]{box/q2}
+
 \textbf{Peak Memory: 3'597'452 kb}\\
 \textbf{Result size: 36'542}\\
 2 Joins and 1 Selection. The joins are not very expensive since we only use about 30\% of the edges.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q2}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q2}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q2}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q2}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
 \clearpage
 
 \includegraphics[width=0.6\textwidth]{graph2}
@@ -43,22 +104,76 @@ SELECT * WHERE (n) -[e with weight < 4]-> (m)\end{verbatim}
 \textbf{Query3}\\
 \begin{verbatim}
 SELECT * WHERE (n:switch) -> (m with position = 'distribution')\end{verbatim}
-\includegraphics[width=1\textwidth]{box/q3}
+
 \textbf{Peak Memory: 1'433'376 kb}\\
 \textbf{Result size: 55'296}\\
 2 Joins and 2 Selections. I expected this query to be a little bit slower since we are using all the edges in the joins, but it is only a tiny bit slower than Query 2.
 \clearpage
-
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q3}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q3}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q3}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q3}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
 \includegraphics[width=0.6\textwidth]{graph3}
 \clearpage
 \textbf{Query4}\\
 \begin{verbatim}
 SELECT * WHERE (n with position = 'distribution')
 -[e with weight > 8]-> (m with position = 'access')\end{verbatim}
-\includegraphics[width=1\textwidth]{box/q4}
+
 \textbf{Peak Memory: 1'114'896 kb}\\
 \textbf{Result size: 3'097}\\
 2 Joins and 3 Selections. Even though this query has more constraints than Query 2 and 3, it is faster since we only use 10\% of the edges in the joins. 
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q4}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q4}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q4}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q4}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
+\clearpage
 \clearpage
 
 \includegraphics[width=0.6\textwidth]{graph4}\clearpage
@@ -66,10 +181,36 @@ SELECT * WHERE (n with position = 'distribution')
 \begin{verbatim}
 SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution')
  -> (w WITH position = 'core')\end{verbatim}
-\includegraphics[width=1\textwidth]{box/q5}
 \textbf{Peak Memory: 3'797'976 kb}\\
 \textbf{Result size: 663'552}\\
 4 Joins and 3 Selections. The last 3 queries all contain multiple query edges and are much slower. Since there is no selection on the edge, this particular query is quite slow even though it has "only" 4 joins.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q5}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q5}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q5}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q5}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
 \clearpage
 
 \includegraphics[width=1\textwidth]{graph5}
@@ -79,10 +220,36 @@ SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution'
 SELECT * WHERE (u WITH position = 'access')
  -[e with weight  < 2]-> (v WITH position = 'distribution')
  -[f with weight > 8]-> (w WITH position = 'core')\end{verbatim}
-\includegraphics[width=1\textwidth]{box/q6}
 \textbf{Peak Memory: 1'573'940 kb}\\
 \textbf{Result size: 8'334}\\
 4 Joins and 5 Selections. Like query 4, the evaluation time goes down as we add more constraints on the edges. Since we have a lot less tuples in the 3rd and 4th join, this query is faster than previous one.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q6}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q6}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q6}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q6}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
 \clearpage
 \includegraphics[width=1\textwidth]{graph6}
 \clearpage
@@ -92,10 +259,36 @@ SELECT * WHERE (u WITH position = 'access')
  -[e with weight  < 2]-> (v WITH position = 'distribution')
  -[f with weight  < 2]-> (w WITH position = 'core')
  -[g with weight  < 2]-> (x WITH position = 'distribution')\end{verbatim}
-\includegraphics[width=1\textwidth]{box7}
 \textbf{Peak Memory: 2'210'824 kb}\\
 \textbf{Result size: 49'956}\\
 6 Joins and 7 Selections. This is probably the most interesting result. We add two more joins to the query, but we restrict the number of edges used in all the joins dramatically. This consequently leads to a surprisingly low evaluation time, almost on the level as query 5. This demonstrates how big the impact of the joins is for the evaluation time.
+\clearpage
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfl/q7}
+    \captionof{figure}{Large Fattree}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesfs/q7}
+    \captionof{figure}{Small Fattree}
+  \end{minipage}
+\end{figure}
+\begin{figure}[!tbp]
+  \centering
+  \RawFloats
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjl/q7}
+    \captionof{figure}{Large Jellyfish}
+  \end{minipage}
+  \hfill
+  \begin{minipage}[b]{0.5\textwidth}
+    \includegraphics[width=\textwidth]{boxesjs/q7}
+    \captionof{figure}{Small Jellyfish}
+  \end{minipage}
+\end{figure}
 \clearpage
 \includegraphics[width=1\textwidth]{graph7}
 \clearpage
