@@ -218,7 +218,6 @@ The Loading of the graph plays a major part of the entire program execution time
 
 
 \section{Benchmarking}
-All experiments were run on server. The machine contained 48 Amd cores. The installed memory was 128 GB of RAM.\\
 In the experiment, four different topologies were used:\\
 \textbf{Large Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
 \textbf{Small Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
@@ -510,6 +509,14 @@ SELECT * WHERE (u WITH position = 'access')
 \clearpage
 \includegraphics[width=1\textwidth]{graph7}
 \clearpage
+\textbf{Query 8}\\
+\begin{verbatim}
+SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution')
+ -> (w WITH position = 'core') -> (x WITH position = 'distribution')\end{verbatim}
+\includegraphics[width=1\textwidth]{q81}
+6 Joins and 4 Selections. I have not included this query in the figure because the evaluation times are around 30 to 40 seconds when run with 48 workers. When using only a single worker I have measured evaluation times over 10 minutes. This is due to the fact that we join 6 times with the full edge collection.
+\clearpage
+
 \textbf{Query 8}\\
 \begin{verbatim}
 SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution')
