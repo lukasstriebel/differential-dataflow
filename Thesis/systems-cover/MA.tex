@@ -7,7 +7,12 @@
 \usepackage{graphicx}
 \usepackage[capposition=bottom]{floatrow}
 \usepackage{listings}
+\usepackage{url}
+\usepackage{titlesec}
 
+\titleformat*{\section}{\LARGE\bfseries}
+\titleformat*{\subsection}{\Large\bfseries}
+\titleformat*{\subsubsection}{\large\bfseries}
 
 \lstset{frame=tb,
   language=Java,
@@ -46,14 +51,17 @@
 \hspace{60mm}
 \begin{center}
  \textbf{Abstract} \end{center}
-In today's business world, Social Networks have become one of the most important if not the most important platforms to advertise your product and gain new customers. Graph databases have been increasing in popularity in comparison to traditional relational databases. This tendency has given birth to the need of powerful and graph datawarehouses and query evaluators. Thus, we present cool program.
+In today's business world, Social Networks have become one of the most important if not the most important platforms to advertise and attract new customers. Thus, graph databases have been increasing in popularity in comparison to traditional relational databases. This tendency has given birth to the need of powerful and graph datawarehouses and query evaluators. In this thesis, we present Qlidaf, an Interface of the Property Graph Query Language for Diffrerential Dataflow.
 
 
 \clearpage
 \tableofcontents
 \clearpage
+\listoffigures
+\clearpage
 \section{Introduction}
 \subsection{Motivation}
+In our modern digital age, the Internet is the largest centre of data and knownledge. The websites of large companies are accessed thousands of times a day. In order to cope with this huge amount of client requests, large sever farms were built. In these farms, hundreds of servers and switches are connected and request have to travel across multiple machines until they are answered. Thus, the need for a system that directs and balances the huge amount of request arises. The first step to deal with this challenge is to model this complicated network of computers as a property graph. In a second step, an algorithm determines how the request should best be directed in order to not overload any part of the network. This thesis focuses on the second step and proposes a program that can evaluate queries on a property graph, in order to determine weak links and find the optimal distribution of the work load.
 \subsection{Structure of the Thesis}
 The Thesis has the following structure:\\
 First, we give an overview of the technologies used in the Thesis in Section 2.\\
@@ -101,26 +109,29 @@ The most complex part of the query is the Where Clause. In this section, all the
   WHERE v.name = 'Alice', v.age > 30
 \end{verbatim}
 
+The official PGQL Specifications can be accessed online at \cite{PGQLSpec}
 \clearpage
-\subsection{Dataflow Computation}
-Dataflow oriented computation is a young field in Computer Science.
+\subsection{Dataflow Programming}
+Dataflow oriented programming is a programming paradigm that models a program as a directed graph of data flowing between operations.
 
 \clearpage
 
 \subsection{Differential Dataflow}
 
-Differential Dataflow was developed by Frank McSherry at Microsoft. \cite{Differential}
-Rather than rewriting the entire data every time a change occurs, Differential Dataflow only keeps track of the changes made to the data. This allows for huge timesavings when executing the same operation multiple times on different data, since the results of previous computations can be reused.
+Developed by Frank McSherry at Microsoft, Differential dataflow is a data-parallel programming framework designed to efficiently process large volumes of data and to quickly respond to arbitrary changes in input collections.\cite{Differential}\\
+Differential Dataflow is an extension of Timely Dataflow, which was also created by Frank McSherry. \cite{GitTimely}
+Rather than rewriting the entire data every time a change occurs, Differential Dataflow only keeps track of the changes made to the data. This allows for huge timesavings when executing the same operation multiple times on different data, since the results of previous computations can be reused.\\\\
+Differential Dataflow is open-source and available for download at \cite{GitDiff}.
 \clearpage
 
 \subsection{The Rust Programming Language}
-Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the 2009, Mozilla offically began sponsering th eproject.\\
-Rust has been praised as it combines . The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, host by the Stack Overflow Community.
+Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the year 2009, Mozilla offically began sponsering the project.\\
+Rust has been praised as it combines guaranteed memory safety with minimal runtime. Other prominent features are zero-cost abstractions, move semantics, threads without data races, trait-based generics, pattern matching, type inference and efficient C bindings\cite{RustLang}. The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, host by the Stack Overflow Community.
 Rust is completly opensource, and a big part of the code was written by members of the community.
 \clearpage
 
-\section{Parser}
-In the following, we describe how our parser is build. The Parser is build using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process.\\\\
+\subsection{Nom}
+The Parser is build using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process.\\\\
 The most commonly used macros were:
 \begin{itemize} 
 \item do\_parse!: Takes a list of parsers as inputs and applies them sequentially, finally returns a tupel.
@@ -132,19 +143,26 @@ The most commonly used macros were:
 \item many1!: Applies the parser 1 or more times. 
 \end{itemize}
 
-As mentioned in Section 2.1, the Parser has to recognize the following 4 clauses: Path definitions, select, where, solution modifier.
+Nom is open-source and available for download at \cite{GitNom}.
+
+\clearpage
+
+\section{Parser}
+In the following, we describe how our parser is build. As mentioned in Section 2.1, the Parser has to recognize the following 4 clauses: Path definitions, select, where, solution modifier.
 \\The main parse function therefore looks:
 \begin{lstlisting}
 named!(pgql_query<Query>,
-    do_parse!(
-	paths: opt!(paths) >>
-	space >>
-	select: select_clause >>
-        space >>
-        vvhere: where_clause >>
-	space >>
-        solmod: opt!(solutionModifier) >>
-        (Query { select: select, vvhere: vvhere, paths: paths, solmod: solmod})
+	do_parse!(
+		paths: opt!(paths) >>
+		space >>
+		select: select_clause >>
+		space >>
+		vvhere: where_clause >>
+		space >>
+		solmod: opt!(solutionModifier) >>
+		(Query { select: select, vvhere: vvhere, paths: paths, solmod: solmod})
+     )
+);
  \end{lstlisting} 
 \clearpage
 
@@ -164,8 +182,90 @@ The Where Clause consists of a list of Constraints. Each constraint defines eith
  
  \subsubsection{Path Constraints}
  Path Constraints are patterns, which are matched against the graph. If a set vertices does not fit the pattern, it is discarded.\\
- A typical Path Constraint requires a vertex to have certain edges to other vertices. For example, the constraint: (v) -> (u) requires that the vertex v has a direct edge to the vertex v.
+ A typical Path Constraint requires a vertex to have certain edges to other vertices. For example, the constraint: (v) -> (u) requires that the vertex v has a direct edge to the vertex u.\\\\Vertices are absoultly essential for the path constraints. A Vertex is delimited by brackets () and its properties are specified inside the brackets (or at a later point in time). There are three parameteres, all of them are completly optional:\\
+ \begin{itemize}
+ \item The name of the vertex. If no name is provided, the vertex is anonymous.
+ \item A set label constraints, recognized by the : sign. Label constraints differ from value constraints
+ \item A set of inlined value constraints, recognized by the keyword WITH. This is basically just syntatic sugar, for example, the two formulation (v WITH age \textgreater 10) and (v), v.age \textgreater 10 are completly equal.
+ \end{itemize}
  
+\textbf{Code sample}
+\begin{lstlisting}
+named!(query_vertex<Vertex>,
+    delimited!(
+        char!('('),
+        do_parse!(
+            vertex_name: opt!(char_only) >> 
+            opt!(space) >>
+            label: opt!(label_constraint) >>
+            opt!(space) >>
+            inlined: opt!(inlined_constraints) >>
+            ({
+                
+                let mut constraints: Vec<Expr> = match inlined {
+                    Some(value) => value,
+                    None => Vec::new()
+                };
+
+                match label {
+                    Some(value) => {constraints.push(value);},
+                    None => {}
+                }
+
+                match vertex_name {
+                    Some(name) => {Vertex{name: String::from(name), anonymous: false, constraints: constraints }},
+                    None => Vertex{name: String::from(""), anonymous: true, constraints: constraints }
+                }
+            })                
+        ),
+        char!(')')
+  )
+);
+ \end{lstlisting} 
+ 
+ The connection between two vertices can be a very simple or a very sophisticated edge with many attributes. An edge is defined by an arrow sign -\textgreater and its properties are specified inside the brackets (or at a later point in time). There are three parameteres, all of them are completly optional:\\
+ \begin{itemize}
+ \item The name of the vertex. If no name is provided, the vertex is anonymous.
+ \item A set label constraints, recognized by the : sign. Label constraints differ from value constraints
+ \item A set of inlined value constraints, recognized by the keyword WITH. This is basically just syntatic sugar, for example, the two formulation (v WITH age \textgreater 10) and (v), v.age \textgreater 10 are completly equal.
+ \end{itemize}
+ 
+\textbf{Code sample}
+ \begin{lstlisting}
+named!(query_edge<Edge>,
+        alt_complete!(
+            tag!("-->") => { |_| Edge {name: String::from(""), inverted: false, constraints: Vec::new() } } |
+            tag!("->") => { |_| Edge {name: String::from(""), inverted: false, constraints: Vec::new() } } | 
+            delimited!(
+                tag!("-["),
+                do_parse!(
+                    edge_name: opt!(char_only) >> 
+                    opt!(space) >>
+                    label: opt!(label_constraint) >>
+                    opt!(space) >>
+                    inlined: opt!(inlined_constraints) >>
+                    ({
+                        
+                        let mut constraints: Vec<Expr> = match inlined {
+                            Some(value) => value,
+                            None => Vec::new()
+                        };
+
+                        match label {
+                            Some(value) => {constraints.push(value);},
+                            None => {}
+                        }
+
+                        match edge_name {
+                            Some(name) => {Edge{name: String::from(name), inverted: false, constraints: constraints }},
+                            None => Edge{name: String::from(""), inverted: false, constraints: constraints }
+                        }
+                    })                
+                ),
+                tag!("]->")
+ );
+ \end{lstlisting}
+ \clearpage
  \subsubsection{Value Constraints}
  Value Constraints are constraints on attributes of the Vertex, e.g. name = `Alice' or age \textless  40. Every Value Constraint has to include one or multiple vertex attributes, and one or more Literals. Literals are raw values, and come in 3 types:
  \begin{itemize} 
@@ -191,6 +291,7 @@ named!(literal<Literal>,
 );
  \end{lstlisting}
  
+ 
  \clearpage
  
  \subsection{Solution Modifier Clause}
@@ -208,47 +309,271 @@ named!(literal<Literal>,
 
 
 \section{Query Evaluation}
-
+In this chapter we will discuss how we construct the dataflow from our queries.
 \subsection{Graph Loader}
-The Loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differntial Dataflow, an entirely new parser had to be written. This parser was also built using nom. In order fo it to properly recognize a graph, the graph has to be supplied in the Vertex-Edge-List format. This format gives us a text file (.txt), which contains two lists. First, all the vertices and their attributes are described. The vertices are ordered ascing according to their ID. The IDs have to start at 1 and must be continuous.
-\subsection{Construction of the Dataflow}
-
+The Loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differential Dataflow, an entirely new parser had to be written. This parser was also built using nom. In order fo it to properly recognize a graph, the graph has to be supplied in the Vertex-Edge-List format\cite{EdgeList}. This format gives us a text file (.txt), which contains two lists. First, all the vertices and their attributes are described. The vertices are ordered ascing according to their ID. The IDs have to start at 1 and must be continuous.\\\\
+\textbf{Small sample graph}
+\begin{lstlisting}
+1 * { 'Server' }             name:'center'   ip:'192.168.0.0'   ram:4
+2 * { 'VM' }                 name:'node1'    ip:'192.168.0.1'	ram:8
+3 * { 'Firewall' 'VM' }      name:'node2'    ip:'192.168.0.2'	ram:16.5
+4 * { 'Host' 'Server' 'VM' } name:'node3'    ip:'192.168.0.3'	ram:32.5
+5 * { 'Switch' }             name:'node4'    ip:'192.168.0.4'	ram:64.5
+1 2 'connectss' bandwidth:1.5 utilization:0.14
+2 3 'connects' bandwidth:2.1 utilization:0.22
+2 4 'connects' bandwidth:1.1 utilization:0.38
+4 5 'connects' bandwidth:1.3 utilization:0.58
+\end{lstlisting}
 \clearpage
+\subsection{Construction of the Dataflow}
+The biggest challenge in the thesis was translating the PGQL query into a dataflow. As described in chapter 3, a query contains a vector of projections and a vector of constraints. We chose to apply the projections at the vey latest point in time. Thus, our evaluation begins with the second vector.\\\\
+\subsection{Constraint sorting}
+First, we iterate through the vector and sort the constraints by type:\\
+\begin{itemize}
+\item If the constraint is a path pattern, it is put into a seperate vector.
+\item If the constraint is an expression, we determine the name of the involved vertex or edge by recursively exploring the expression. Once the variable name is known, the expression is then pushed into a Hashmap of Vectors. For each variable there exists a seperate vector with expressions. This grouping helps tremendously when filtering the vertex set later on.
+\end{itemize}
+\textbf{Code sample}
+\begin{lstlisting}
+for constraint in &vvhere{
+                match constraint {
+                    &Constraint::PathPattern(ref pattern) => connections.push(pattern),
+                    &Constraint::Expr(ref expr) => {
+                        let name = explore_expr((*expr).clone());
+                        let mut new = false;
+                        match selections.get_mut(&name) {
+                            Some(vec) => vec.push((*expr).clone()),
+                            None => new = true,
+                        }
+                        if new {
+                            selections.insert(name, vec![(*expr).clone()]);
+                        }
+                    },
+                }
+            }
+\end{lstlisting}
+\subsection{Constructing an execution plan}
+Once we have iterated over the entire vector, we begin the construction of an execution plan. We iterate through all the path patterns (we have stored them previously in a seperated vector) and make a decision how to construct the plan. There are three possibilities:
+\begin{itemize}
+\item Both the source and the target of the edge have not appeared before. In this case, we pull the source and the target set and join them with the edge set. 
+\item The source of the edge has already appeared before. In this case, we pull the target set, map the result we carried onto the correct id and then join them with the edge set.
+\item Both the source and the target of the edge have appeared before. In this case, we are dealing with a loop in the query. Thus, we do not need to join any sets, but we can just enforce an additional constraint on the ids.
+\end{itemize}
+\textbf{Code sample}
+\begin{lstlisting}
+for connection in connections {
+                if !used_fields.contains(&connection.source.name) {
+                    used_fields.insert(&connection.source.name);
+                    used_fields.insert(&connection.target.name);
+                    names.insert(&connection.source.name, ids);
+                    ids = ids + 1;
+                    names.insert(&connection.target.name, ids);
+                    ids = ids + 1;
 
+                    let mut new = false;
+                    match selections.get_mut(&connection.source.name) {
+                            Some(mut vec) => vec.append(& mut connection.source.constraints.clone()),
+                            None => new = true,
+                    }
+                    if new {
+                            selections.insert(connection.source.name.clone(), connection.source.constraints.clone());
+                    }
+                    new = false;
+                    match selections.get_mut(&connection.target.name) {
+                            Some(mut vec) => vec.append(& mut connection.target.constraints.clone()),
+                            None => new = true,
+                    }
+                    if new {
+                            selections.insert(connection.target.name.clone(), connection.target.constraints.clone());
+                    }
 
+                    execution_plan.push(
+                        PhyPlan{ 
+                            name: vec![connection.source.name.clone(), connection.target.name.clone()],
+                            left: connection.source.name.clone(),
+                            right: connection.target.name.clone(),
+                            join_id: 0,
+                            join: true,
+                            filter_id: 100,
+                            constraints: connection.edge.constraints.clone(),
+                        }
+                    );
+                }
+                else if !used_fields.contains(&connection.target.name) {
+                    used_fields.insert(&connection.target.name);
+                    names.insert(&connection.target.name, ids);
+                    ids = ids + 1;
 
-\section{Benchmarking}
-In the experiment, four different topologies were used:\\
-\textbf{Large Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
-\textbf{Small Fattree}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
-\textbf{Large Jellyfish}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
-\textbf{Small Jellyfish}  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.
+                    let mut new = false;
+                    match selections.get_mut(&connection.target.name) {
+                            Some(mut vec) => vec.append(& mut connection.target.constraints.clone()),
+                            None => new = true,
+                    }
+                    if new {
+                            selections.insert(connection.target.name.clone(), connection.target.constraints.clone());
+                    }
+                    execution_plan.push(
+                        PhyPlan{ 
+                            name: vec![connection.source.name.clone(), connection.target.name.clone()],
+                            left: connection.source.name.clone(),
+                            right: connection.target.name.clone(),
+                            join_id: *names.get(&connection.source.name).unwrap(),
+                            join: true,
+                            filter_id: 100,
+                            constraints: connection.edge.constraints.clone(),
+                        }
+                    );
+                }
+                else {
+                    execution_plan.push(
+                        PhyPlan{ 
+                            name: vec![connection.source.name.clone(), connection.target.name.clone()],
+                            left: connection.source.name.clone(),
+                            right: connection.target.name.clone(),
+                            join_id: *names.get(&connection.source.name).unwrap(),
+                            join: false,
+                            filter_id: *names.get(&connection.target.name).unwrap(),
+                            constraints: connection.edge.constraints.clone(),
+                        }
+                    );
+                }
+
+            }
+\end{lstlisting}
+\subsection{Selection on the vertex set}
+The next step is to apply all the selections we have sorted beforehand on the vertex set. For each non-anonymous vertex, we filter the entire set and save the result in a Hashmap. The key in this Hashmap is the name of the vertex.
+\textbf{Code sample}
+\begin{lstlisting}
+for (name, filter) in selections {
+                let result = vertices.filter(move |x| {
+                    check_node(&x, &filter)
+                });
+
+                plans.insert(name, result);
+            }
+\end{lstlisting}
+\subsection{Executing the plan}
+\textbf{Code sample}
+\begin{lstlisting}
+let mut result = None;
+                for step in execution_plan {
+
+                    //let constraints = &step.constraints 
+                    
+                    if step.join && step.join_id == 0 {
+                        let sources = match plans.get(&step.left){
+                            None => vertices,
+                            Some(list) => list,
+                        };
+
+                        let targets = match plans.get(&step.right){
+                            Some(list) => list,
+                            None => vertices,
+                        };
+                        result =    Some(sources.map(|x| (x.id, x))
+                                    .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
+                                    .map(|x| (x.source,x.target)))
+                                    .map(|(_,v1,v2)| (v2,v1))
+                                    .join(&targets.map(|x| (x.id, x)))
+                                    .map(|(_,v1,v2)| vec![v1,v2]));
+                    }
+                    else if !step.join {
+                        let int = step.join_id;
+                        let int2 = step.filter_id;
+                        result = Some(result.unwrap().map(move |x| (x[int].id, x))
+                                .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
+                                .map(|x| (x.source,x.target)))
+                                .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[int2].id == *id})
+                                .map(|(_,v1,_)| v1));
+
+                    }
+                    else {                 
+                        let targets = match plans.get(&step.right){
+                            Some(list) => list,
+                            None => vertices,
+                        };
+                        result = Some(result.unwrap().map(move |vec| (vec[step.join_id].id, vec))
+                                .join(&edges.filter(move |x| true)//check_edge(&x, &step.constraints))
+                                .map(|x| (x.source,x.target)))
+                                .map(|(_,v1,v2)| (v2,v1))
+                                .join(&targets.map(|x| (x.id, x)))
+                                .map(|(_, mut v1,v2)| {v1.push(v2);v1}));   
+                    }
+                }
+ \end{lstlisting} 
+\subsection{Applying the projection and aggregation}
+\textbf{Code sample}
+\begin{lstlisting}
+for projection in &select{
+                            match projection {
+                                &SelectElem::Star => {
+                                    list.inspect(|&(ref x,_)| println!("{:?}", x));
+                                },
+                                &SelectElem::Attribute(ref attr) => {
+                                    //let strng = string_to_static_str(attr.name.clone());
+                                    let field = string_to_static_str(attr.field.clone());
+                                    let id = *(names.get(&attr.name).unwrap());
+                                    list.inspect(move |&(ref x,_)| println!("{:?}", x[id].get(&field.into()).unwrap()));
+                                    
+                                    
+                                },
+                                &SelectElem::Aggregation(ref aggr) => {
+                                    match aggr {
+                                        &Aggregation::Count(ref attr) => {
+                                                list.map(move |x| (1, x)).group(move |key, vals, output| {
+                                                        let mut count = 0;
+                                                        for _ in vals {
+                                                            count = count + 1;
+                                                        }                                                        
+                                                        output.push(((),count));
+                                                    }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                                
+                                            }
+ \end{lstlisting} 
 \clearpage
 
 
 \section{Results and Discussion}
 
-\textbf{Things to consider}\\\\
-1. Weight is an attribute of the edges and (as far as I know) uniformly distributed from 1 to 9. The selection weight \textless 2 will therefore remove around 90\% of all edges., which speeds up the join process immensely.\\\\
-2. Since Timely does not like HashMaps at all, attributes of vertices and edges are store in a Vector of (String, Literal) tuples. However, in order to do a selection, this Vector has to be transformed back into a HashMap, which takes some time. Therefore  the more selection a query contains, the slower it should be.\\\\
-3. One Edge in the query triggers two joins in the evaluation,  because we have to join the edge collection twice with the vertex collection.\\\\
-4. These are the results of the large fattree, with nearly 60'000 vertices and 50'000 bidirectional edge (ergo 100'000 in the collection). The results look very similar for the smaller fattree topology, just a bit smaller in magnitude.\\\\\\
-\textbf{Overview}
-
-
-\includegraphics[width=1\textwidth]{overview3}
+\subsection{Hardware}
+All the experiments were conducted on an ETH server (exact model?). This machine possesses 4 x 12 AMD Opteron 6174 processors, each one running at 2.2 GHz. The operating System was Debian 7.0 and the installed memory was 128 GB of RAM.
+\subsection{Topologies}
+We select two distinctly different
+topologies: fattree~\cite{FatTree} and jellyfish~\cite{Jellyfish}. fattree is a modification of the leaf-spine structure, commonly found in datacenters, and it is thus a practically deployable solution. jellyfish is inspired by work on random graphs showcasing that random structures can deliver shorter average paths but is more of an ideal-case reference rather than a realistic topology.
+In the experiment, four different topologies were used:\\\\
+\textbf{Large Fattree} \quad  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
+\textbf{Small Fattree} \quad The small fattree topology has the same vertices to edge ratio as the large fattree, but it is overall much smaller. It contains 17'665 vertices, of which 1'280 are switches. Furthermore the graph possesses a total of 16' 400 bidirectional edges. (needs better formulation) \\\\
+\textbf{Large Jellyfish} \quad  The large jellyfish topology matches the large fattree in terms of vertices, but contains far less edges. It contains 56'160 vertices, of which 864 are switches. Furthermore the graph possesses a total of 6'910 bidirectional edges. (needs better formulation)\\\\
+\textbf{Small Jellyfish} \quad The small jellyfish topology is the smallest one of the four topologies. It contains 16'770 vertices, of which 390 are switches. Furthermore the graph possesses a total of 2'145 bidirectional edges. (needs better formulation)
+\subsection{Expectations}
+In all topologies, weight is an attribute of the edges and uniformly distributed from 1 to 9. Consequently, the selection 'weight \textless 2' will therefore remove around 89\% of all edges. A lesser amount of edges immensely shortens the duration of any subsequent join process.\\ Since joining the entire vertex and edge set is a very costly operation, it is possible that queries with multiple, but restricted joins are faster than such, which contain fewer joins, but do not include any restrictions on the edge set. \\\\
+Furthermore, it is important to consider the fact that the attributes of vertices and edges in a Differential Dataflow Collection are stored in a Vector of (String, Literal) tuples. We chose this suboptimal implementation since Differential Dataflow does not aprreciate HashMaps at all. However, in order to do a selection on either set, this Vector has to be transformed back into a HashMap for each edge respectively vertex. This process can be quite timeconsuming, therefore the more selections a query contains, the slower it expected to be.\\\\
+It should also be noted that one single edge in the query triggers two joins in the evaluation. Reason being that we have to join the edge collection twice with the vertex collection, in order to determine all adjacent vertices of a given vertex.\\\\\\
+In total, we ran seven different queries, with each subsequent query being more complex than the preceding one. For each query the resulting dataflow is drawn on the following pages. The numbers on the edges indicate the size of (intermediate) result set on the large fattree.\clearpage
+\subsection{Overview}
+\begin{figure}[H]
+\includegraphics[width=1\textwidth]{ov}
+\caption{An overview of the seven queries, run with 32 workers}
+\end{figure}
+Throughout all seven queries, the following pattern is noticeable:\\
+The influence of the number of workers behaves unexpectedly, especially for queries 1,4 and 6. In a perfect world, the query latency would be inversely proportional to the number of workers. However, we only observe this behaviour for query 5, and only for the fattree topologies.\\More often than not, an increase of worker threads leads to a higher latency, especially when the latency is already quite low, around the 50 to 200 millisecond range. We reason that this happens because at that level, the communication overhead dominates the time savings achieved by parallelism. This claim is additionally supported by the fact, that query 5 has one of the longest latencies, ranging up to 10 seconds. When evaluating queries with lower latency, the contention between the workers increases and we frequently observe that the best performance is achieved when running the query with just a single worker.\\
+The following pages contain the dataflows executing the query and the evaluation times distribution for each of the seven queries
 
 \clearpage
 
-\clearpage
-
-\textbf{Query 1}\\
+\subsection{Query 1}
 \begin{verbatim}
-SELECT * WHERE u.label() = 'switch', u.position = 'access'
+SELECT u.name WHERE u.label() = 'switch', u.position = 'access'
 \end{verbatim}
+
 \textbf{Peak Memory: 377'840 kb}\\
 \textbf{Result size: 1'152} \\
-2 simple selections, 0 joins. One pass through the vertices collection is enough to produce the result.
+2 simple selections, 0 joins. One pass through the vertices collection is enough to produce the result.\\\\
+\textbf{Dataflow}
+\begin{figure}[H]
+\includegraphics[width=0.4\textwidth]{graph1}
+\caption{Dataflow Query1}
+\end{figure}
 \clearpage
 \begin{figure}[!tbp]
   \centering
@@ -277,16 +602,18 @@ SELECT * WHERE u.label() = 'switch', u.position = 'access'
   \end{minipage}
 \end{figure}
 \clearpage
-
-\includegraphics[width=0.4\textwidth]{graph1}
-\clearpage
-\textbf{Query2}\\
+\subsection{Query2}
 \begin{verbatim}
-SELECT * WHERE (n) -[e with weight < 4]-> (m)\end{verbatim}
+SELECT n.name WHERE (n) -[e with weight < 4]-> (m)\end{verbatim}
 
 \textbf{Peak Memory: 3'597'452 kb}\\
 \textbf{Result size: 36'542}\\
-2 Joins and 1 Selection. The joins are not very expensive since we only use about 30\% of the edges.
+2 Joins and 1 Selection. The joins are not very expensive since we only use about 30\% of the edges.\\\\
+\textbf{Dataflow}
+\begin{figure}[H]
+\includegraphics[width=0.4\textwidth]{graph2}
+\caption{Dataflow Query2}
+\end{figure}
 \clearpage
 \begin{figure}[!tbp]
   \centering
@@ -315,16 +642,18 @@ SELECT * WHERE (n) -[e with weight < 4]-> (m)\end{verbatim}
   \end{minipage}
 \end{figure}
 \clearpage
-
-\includegraphics[width=0.6\textwidth]{graph2}
-\clearpage
-\textbf{Query3}\\
+\subsection{Query3}
 \begin{verbatim}
-SELECT * WHERE (n:switch) -> (m with position = 'distribution')\end{verbatim}
+SELECT n.name WHERE (n:switch) -> (m with position = 'distribution')\end{verbatim}
 
 \textbf{Peak Memory: 1'433'376 kb}\\
 \textbf{Result size: 55'296}\\
-2 Joins and 2 Selections. I expected this query to be a little bit slower since we are using all the edges in the joins, but it is only a tiny bit slower than Query 2.
+2 Joins and 2 Selections. I expected this query to be a little bit slower since we are using all the edges in the joins, but it is only a tiny bit slower than Query 2.\\\\
+\textbf{Dataflow}
+\begin{figure}[H]
+\includegraphics[width=0.6\textwidth]{graph3}
+\caption{Dataflow Query3}
+\end{figure}
 \clearpage
 \begin{figure}[!tbp]
   \centering
@@ -353,16 +682,19 @@ SELECT * WHERE (n:switch) -> (m with position = 'distribution')\end{verbatim}
   \end{minipage}
 \end{figure}
 \clearpage
-\includegraphics[width=0.6\textwidth]{graph3}
-\clearpage
-\textbf{Query4}\\
+\subsection{Query4}
 \begin{verbatim}
-SELECT * WHERE (n with position = 'distribution')
+SELECT n.name WHERE (n with position = 'distribution')
 -[e with weight > 8]-> (m with position = 'access')\end{verbatim}
 
 \textbf{Peak Memory: 1'114'896 kb}\\
 \textbf{Result size: 3'097}\\
-2 Joins and 3 Selections. Even though this query has more constraints than Query 2 and 3, it is faster since we only use 10\% of the edges in the joins. 
+2 Joins and 3 Selections. Even though this query has more constraints than Query 2 and 3, it is faster since we only use 10\% of the edges in the joins. \\\\
+\textbf{Dataflow}
+\begin{figure}[H]
+\includegraphics[width=0.6\textwidth]{graph4}
+\caption{Dataflow Query4}
+\end{figure}
 \clearpage
 \begin{figure}[!tbp]
   \centering
@@ -391,16 +723,20 @@ SELECT * WHERE (n with position = 'distribution')
   \end{minipage}
 \end{figure}
 \clearpage
-\clearpage
 
-\includegraphics[width=0.6\textwidth]{graph4}\clearpage
-\textbf{Query5}\\
+\subsection{Query5}
 \begin{verbatim}
-SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution')
+SELECT v.name WHERE (u WITH position = 'access')
+ -> (v WITH position = 'distribution')
  -> (w WITH position = 'core')\end{verbatim}
 \textbf{Peak Memory: 3'797'976 kb}\\
 \textbf{Result size: 663'552}\\
-4 Joins and 3 Selections. The last 3 queries all contain multiple query edges and are much slower. Since there is no selection on the edge, this particular query is quite slow even though it has "only" 4 joins.
+4 Joins and 3 Selections. The last 3 queries all contain multiple query edges and are much slower. Since there is no selection on the edge, this particular query is quite slow even though it has "only" 4 joins.\\\\
+\textbf{Dataflow}
+\begin{figure}[H]
+\includegraphics[width=0.6\textwidth]{graph5}
+\caption{Dataflow Query5}
+\end{figure}
 \clearpage
 \begin{figure}[!tbp]
   \centering
@@ -430,16 +766,19 @@ SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution'
 \end{figure}
 \clearpage
 
-\includegraphics[width=1\textwidth]{graph5}
-\clearpage
-\textbf{Query6}\\
+\subsection{Query6}
 \begin{verbatim}
-SELECT * WHERE (u WITH position = 'access')
+SELECT v.name WHERE (u WITH position = 'access')
  -[e with weight  < 2]-> (v WITH position = 'distribution')
  -[f with weight > 8]-> (w WITH position = 'core')\end{verbatim}
 \textbf{Peak Memory: 1'573'940 kb}\\
 \textbf{Result size: 8'334}\\
-4 Joins and 5 Selections. Like query 4, the evaluation time goes down as we add more constraints on the edges. Since we have a lot less tuples in the 3rd and 4th join, this query is faster than previous one.
+4 Joins and 5 Selections. Like query 4, the evaluation time goes down as we add more constraints on the edges. Since we have a lot less tuples in the 3rd and 4th join, this query is faster than previous one.\\\\
+\textbf{Dataflow}
+\begin{figure}[H]
+\includegraphics[width=0.8\textwidth]{graph6}
+\caption{Dataflow Query6}
+\end{figure}
 \clearpage
 \begin{figure}[!tbp]
   \centering
@@ -468,17 +807,20 @@ SELECT * WHERE (u WITH position = 'access')
   \end{minipage}
 \end{figure}
 \clearpage
-\includegraphics[width=1\textwidth]{graph6}
-\clearpage
-\textbf{Query7}\\
+\subsection{Query7}
 \begin{verbatim}
-SELECT * WHERE (u WITH position = 'access')
+SELECT v.name WHERE (u WITH position = 'access')
  -[e with weight  < 2]-> (v WITH position = 'distribution')
  -[f with weight  < 2]-> (w WITH position = 'core')
  -[g with weight  < 2]-> (x WITH position = 'distribution')\end{verbatim}
 \textbf{Peak Memory: 2'210'824 kb}\\
 \textbf{Result size: 49'956}\\
-6 Joins and 7 Selections. This is probably the most interesting result. We add two more joins to the query, but we restrict the number of edges used in all the joins dramatically. This consequently leads to a surprisingly low evaluation time, almost on the level as query 5. This demonstrates how big the impact of the joins is for the evaluation time.
+6 Joins and 7 Selections. This is probably the most interesting result. We add two more joins to the query, but we restrict the number of edges used in all the joins dramatically. This consequently leads to a surprisingly low evaluation time, almost on the level as query 5. This demonstrates how big the impact of the joins is for the evaluation time.\\\\
+\textbf{Dataflow}
+\begin{figure}[H]
+\includegraphics[width=0.8\textwidth]{graph7}
+\caption{Dataflow Query7}
+\end{figure}
 \clearpage
 \begin{figure}[!tbp]
   \centering
@@ -507,29 +849,12 @@ SELECT * WHERE (u WITH position = 'access')
   \end{minipage}
 \end{figure}
 \clearpage
-\includegraphics[width=1\textwidth]{graph7}
-\clearpage
-\textbf{Query 8}\\
-\begin{verbatim}
-SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution')
- -> (w WITH position = 'core') -> (x WITH position = 'distribution')\end{verbatim}
-\includegraphics[width=1\textwidth]{q81}
-6 Joins and 4 Selections. I have not included this query in the figure because the evaluation times are around 30 to 40 seconds when run with 48 workers. When using only a single worker I have measured evaluation times over 10 minutes. This is due to the fact that we join 6 times with the full edge collection.
-\clearpage
-
-\textbf{Query 8}\\
-\begin{verbatim}
-SELECT * WHERE (u WITH position = 'access') -> (v WITH position = 'distribution')
- -> (w WITH position = 'core') -> (x WITH position = 'distribution')\end{verbatim}
-\includegraphics[width=1\textwidth]{q81}
-6 Joins and 4 Selections. I have not included this query in the figure because the evaluation times are around 30 to 40 seconds when run with 48 workers. When using only a single worker I have measured evaluation times over 10 minutes. This is due to the fact that we join 6 times with the full edge collection.
-\clearpage
 
 \section{Related Work}
 In this chapter we give an overview of other existing graph databases and query evluators.
 
 \subsection{SPARQL}
-
+RDF is a directed, labeled graph data format for representing information in the Web. This specification defines the syntax and semantics of the SPARQL query language for RDF. SPARQL can be used to express queries across diverse data sources, whether the data is stored natively as RDF or viewed as RDF via middleware. SPARQL contains capabilities for querying required and optional graph patterns along with their conjunctions and disjunctions. SPARQL also supports extensible value testing and constraining queries by source RDF graph. The results of SPARQL queries can be results sets or RDF graphs.\cite{SPARQL}
 \subsection{PQL}
 A program query language, PQL for short, is a source language-independent notation to specify program queries and program views. PQL is used as an interface to Static Program Analyzers (SPA), interactive tools that enhance program understanding by answering queries about programs. Queris on global program design as well as searches for detail code patterns are both possible in PQL. Program queries and patterns supported by other notations described in literature and those supported by commercial tools can be written simply and naturally in PQL.\cite {PQL}
 
