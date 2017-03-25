@@ -280,6 +280,8 @@ impl Literal {
 pub struct Query {
     select: Vec<SelectElem>,
     vvhere: Vec<Constraint>,
+    paths: Option<Vec<(String, Connection)> >,
+    sol_mod: Option<(GroupBy, OrderBy, (i32, i32))>,
 }
 
 #[derive(Debug,PartialEq)]
@@ -292,25 +294,25 @@ pub enum SelectElem {
 #[derive(Debug,PartialEq)]
 pub enum Constraint{
     Expr(Expr),
-    PathPattern(Connection),
+    PathPattern(Vec<Connection>),
 }
 
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq, Clone)]
 pub struct Connection {
     source: Vertex,
     target: Vertex,
     edge: Edge,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Edge {
     name: String,
     inverted: bool,
     constraints: Vec<Expr>,
 }
 
-#[derive(Debug,PartialEq)]
+#[derive(Debug,PartialEq,Clone)]
 pub struct Vertex {
     name: String,
     anonymous: bool,
@@ -585,7 +587,7 @@ impl From<DiffEdge> for GraphEdge {
 /*
 named!(pgql_query_complete<Query>,
     chain!(
-        paths: paths ~
+        paths: opt!(paths) ~
         space ~
         select: select_clause ~
         space ~
@@ -605,6 +607,30 @@ named!(pgql_query<(Vec<SelectElem>, Vec<Constraint>)>,
     )
 );
 
+
+named!(path<(String, Connection)>,
+    chain!( 
+        tag_no_case_s!("path") ~
+        space ~
+        name: char_only ~
+        opt!(space) ~
+        tag!(":=") ~
+        opt!(space) ~
+        pattern: path_pattern,
+        || (String::from(name),pattern[0].clone())
+    )
+);
+
+named!(paths<Vec<(String, Connection)> >,
+    many0!(
+        chain!( 
+            p: path ~
+            opt!(space) ~
+            tag!("\n"),
+            || p
+        )
+    )
+);
 //////////////////////////////
 //                          //
 //          SELECT          //
@@ -699,25 +725,7 @@ named!(constraint<Constraint>,
 //////////////////////////////
 
 
-/*named!(pathPattern< Expr >,
-    chain!(
-        q: queryVertex ~
-        space ~ 
-        m: many0!(
-            chain!(
-                //qc: queryConnection ~
-                qc: queryEdge ~
-                space ~
-                qv: queryVertex ~
-                space?,
-            || {Connection {source:q, target: qv}}
-            )
-        ), 
-        || Expr::PathPattern(m)
-    )
-);*/
-
-named!(path_pattern< Connection >,
+/*named!(path_pattern< Connection >,
     chain!(
         source: query_vertex ~
         space ~ 
@@ -726,9 +734,32 @@ named!(path_pattern< Connection >,
         target: query_vertex, 
         || Connection{source: source, target: target, edge: edge}
     )
+);*/
+named!(path_pattern<Vec<Connection> >,
+    chain!(
+        initial: query_vertex ~ 
+        remainder: many1!(
+            chain!(
+                space ~ 
+                edge: query_edge ~
+                space ~
+                target: query_vertex, 
+                || (edge, target)
+            )
+        ), ||
+    fold_connection(initial, remainder) 
+    )
 );
 
-
+fn fold_connection(initial: Vertex, remainder: Vec<(Edge, Vertex)>) -> Vec<Connection> {
+    let mut result = Vec::new();
+    let mut previous = initial;
+    for (edge, vertex) in remainder{
+        result.push(Connection{source: previous, target: vertex.clone(), edge: edge});
+        previous = vertex;
+    }
+    return result;
+}
 
 named!(query_vertex<Vertex>,
     delimited!(
@@ -1422,6 +1453,15 @@ named!(attributes< Vec< (&str, Literal) > >,
     )
 );
 
+
+fn string_to_static_str(s: String) -> &'static str {
+    unsafe {
+        let ret = mem::transmute(&s as &str);
+        mem::forget(s);
+        ret
+    }
+}
+
 impl Display for Graph
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result
@@ -1451,31 +1491,12 @@ impl Display for Graph
     }
 }
 
-fn string_to_static_str(s: String) -> &'static str {
-    unsafe {
-        let ret = mem::transmute(&s as &str);
-        mem::forget(s);
-        ret
-    }
-}
-
-fn int_to_static_str(s: usize) -> &'static usize {
-    unsafe {
-        let ret = mem::transmute(s);
-        mem::forget(s);
-        ret
-    }
-}
 
 fn main() { 
-
-    let timer = Instant::now();
-    //let graph_filepath: RefCell<String>= RefCell::new(std::env::args().nth(2).unwrap());
+    
     let graph_filepath: String = std::env::args().nth(1).unwrap();
-    let st = string_to_static_str(graph_filepath);
-    //let st = "graph.txt";
+    let st = string_to_static_str(graph_filepath);    
     let query_filepath: String = std::env::args().nth(2).unwrap();
-    //let query_filepath: String = "query.txt".into(); 
 
     //Parse the Query
     let mut file = File::open(&query_filepath).unwrap();
@@ -1484,11 +1505,10 @@ fn main() {
     for line in reader.lines() {
 
         let query = line.unwrap();
-
         // define a new computational scope, in which to run the query
         timely::execute_from_args(std::env::args().skip(2), move |computation| {
 
-            
+            let timer = Instant::now();
 
             // logic goes here
             let (mut edges, mut vertices, probe) = computation.scoped(|scope| {
@@ -1499,7 +1519,7 @@ fn main() {
                 // handle to push edges into the system
                 let (edge_input, edges) = scope.new_input();
 
-                let (probe, output) = evaluate(&Collection::new(edges), &query, &Collection::new(vertices)).probe();
+                let (probe, output) = evaluate(&Collection::new(edges), &query, &Collection::new(vertices)).unwrap().probe();
                 (edge_input, vertex_input, probe)
             });
             
@@ -1508,14 +1528,13 @@ fn main() {
                 let timer2 = Instant::now();
                 
                 // Load the Graph
-                //let mut file2 = File::open(&graph_filepath.into_inner()).unwrap();
                 let mut file2 = File::open(st).unwrap();
                 let mut string = String::new();
                  
                 match file2.read_to_string(&mut string) {
                     Err(error) => panic!("Couldn't read file {}: {}", st,
                                                                error.description()),
-                    Ok(_) => {//println!("Graph File {} successfully opened\n", "graph_filepath")
+                    Ok(_) => {println!("Graph File {} successfully opened\n", st)
                     },
                 }
                 
@@ -1546,8 +1565,10 @@ fn main() {
                     IResult::Incomplete( value) =>println!("{:?}", value)
                 }
                 println!("Graph Loading: {:?}\n\n", timer2.elapsed());
+
             }
 
+            
             let timer3 = Instant::now();
             // advance epoch
             edges.advance_to(1);
@@ -1555,10 +1576,10 @@ fn main() {
             // do the job
             computation.step_while(|| probe.lt(edges.time()));
 
-            println!("Evaluation time: {:?}\n\n", timer3.elapsed());
                         
 
             if computation.index() == 0 {
+                println!("Evaluation time: {:?}\n\n", timer3.elapsed());
                 println!("Total Execution: {:?}\n\n", timer.elapsed());
             }
 
@@ -1569,7 +1590,7 @@ fn main() {
 
 
 fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
-    vertices: &Collection<G, DifferentialVertex>) -> Collection<G, DiffEdge> where G::Timestamp: Lattice {
+    vertices: &Collection<G, DifferentialVertex>) -> Option<Collection<G, Vec<DifferentialVertex> > > where G::Timestamp: Lattice {
     
     let query = pgql_query(query_string.as_bytes());
     
@@ -1580,7 +1601,10 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
 
             for constraint in &vvhere{
                 match constraint {
-                    &Constraint::PathPattern(ref pattern) => connections.push(pattern),
+                    &Constraint::PathPattern(ref vec) => {
+                        for pattern in vec{
+                        connections.push(pattern);}
+                    },
                     &Constraint::Expr(ref expr) => {
                         let name = explore_expr((*expr).clone());
                         let mut new = false;
@@ -1694,13 +1718,14 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                 match projection {
                                     &SelectElem::Star => {
                                         for (ref key,ref plan) in &plans {
-                                        plan.inspect(|&(ref x,_)| println!("{:?}", x));
+                                            plan.inspect(|&(ref x,_)| println!("{:?}", x));
+                                            return Some(plan.map(|x| vec![x]));
                                         }
                                     },
                                     &SelectElem::Attribute(ref attr) => {
                                         let vertices = plans.get(&attr.name).unwrap();
                                         let field = string_to_static_str(attr.field.clone());
-                                        vertices.inspect(move |&(ref x,_)| println!("{:?}", x.get(field.into()).unwrap()));
+                                        vertices.inspect(move |&(ref x,_)| println!("{:?}", x.get(&field.into()).unwrap()));
                                        
                                     },
                                     &SelectElem::Aggregation(ref aggr) => {
@@ -1714,6 +1739,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                                         }                                                        
                                                         output.push(((),count));
                                                     }).inspect(|&(_, ref x)| println!("{:?}", x));
+                                                    return Some(plan.map(|x| vec![x]));
                                                 
                                             },
                                             &Aggregation::Max(ref attr) => {
@@ -1770,14 +1796,11 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                     },
                                 }
                             }
-                        //println!("Evaluation time: {:?}\n\n", timer.elapsed());
             }
 
             else{
                 let mut result = None;
                 for step in execution_plan {
-
-                    //let constraints = &step.constraints 
                     
                     if step.join && step.join_id == 0 {
                         let sources = match plans.get(&step.left){
@@ -1806,13 +1829,15 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                 .map(|(_,v1,_)| v1));
 
                     }
-                    else {                 
-                        let targets = match plans.get(&step.right){
+                    else {
+                        let x = string_to_static_str(step.right.clone());
+                        let y = step.join_id;                 
+                        let targets = match plans.get(&x.to_string()){
                             Some(list) => list,
                             None => vertices,
                         };
-                        result = Some(result.unwrap().map(move |vec| (vec[step.join_id].id, vec))
-                                .join(&edges.filter(move |x| true)//check_edge(&x, &step.constraints))
+                        result = Some(result.unwrap().map(move |vec| (vec[y].id, vec))
+                                .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
                                 .map(|x| (x.source,x.target)))
                                 .map(|(_,v1,v2)| (v2,v1))
                                 .join(&targets.map(|x| (x.id, x)))
@@ -1823,7 +1848,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                 match result {
                     Some(list) => {
                         let mut count = 0;
-                        //println!("Your Query {} returned the following result:\n", query_string);
+                        println!("Your Query {} returned the following result:\n", query_string);
           
                         for projection in &select{
                             match projection {
@@ -1831,7 +1856,6 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                     list.inspect(|&(ref x,_)| println!("{:?}", x));
                                 },
                                 &SelectElem::Attribute(ref attr) => {
-                                    //let strng = string_to_static_str(attr.name.clone());
                                     let field = string_to_static_str(attr.field.clone());
                                     let id = *(names.get(&attr.name).unwrap());
                                     list.inspect(move |&(ref x,_)| println!("{:?}", x[id].get(&field.into()).unwrap()));
@@ -1905,12 +1929,11 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
                                 },
                             }
                         }
-                        //list.inspect(move |_| {count = count + 1; println!("{:?}", count);});
-                        //println!("Return tuples = {:?}\nEvaluation took: {:?}\n\n",count, timer.elapsed());
-                        //println!("Evaluation time: {:?}\n\n", timer.elapsed());
+                        return Some(list);
                         
                     },
-                    None => {println!("No vertices match your criteria");},
+                    None => {println!("No vertices match your criteria");
+                    return  None;},
                 }   
             }
         }
@@ -1928,11 +1951,7 @@ fn evaluate<G: Scope>(edges: &Collection<G, DiffEdge>, query_string: &String,
             _ => println!("{:?}", query)            
         
     }
-    
-    edges.filter(|_| {
-        true
-        //let &(ref source, ref target) = x;
-    })
+    return None;
 }
 
 fn check_edge (edge: &DiffEdge, constraints: &Vec<Expr>) -> bool {
