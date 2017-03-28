@@ -587,13 +587,13 @@ impl From<DiffEdge> for GraphEdge {
 /*
 named!(pgql_query_complete<Query>,
     chain!(
-        paths: opt!(paths) ~
+        paths: opt!(path_clause) ~
         space ~
         select: select_clause ~
         space ~
         vvhere: where_clause  ~
         space ~     
-        opt!(sol_mod: solution_modifier),
+        opt!(sol_mod: solution_modifier_clause),
         || Query { select: select, vvhere: vvhere, sol_mod: sol_mod, paths: paths}
     )
 );*/
@@ -621,13 +621,13 @@ named!(path<(String, Connection)>,
     )
 );
 
-named!(paths<Vec<(String, Connection)> >,
+named!(path_clause<Vec<(String, Connection)> >,
     many0!(
         chain!( 
-            p: path ~
+            path: path ~
             opt!(space) ~
             tag!("\n"),
-            || p
+            || path
         )
     )
 );
@@ -642,8 +642,8 @@ named!(select_clause<Vec<SelectElem> >,
     chain!( 
         tag_no_case_s!("select") ~
         space ~
-        a: select_elems,
-        || a
+        select_elems: select_elems,
+        || select_elems
     )
 );
 
@@ -665,14 +665,7 @@ named!(select_elem<SelectElem>,
     alt_complete!(
                 aggregate => {|aggregation| 
                             SelectElem::Aggregation(aggregation)} |
-                do_parse!(
-                    v: variable_name >>
-                     ({
-                        let (name, field) = v;
-                            let a = Attribute{name: name, field: field};
-                            SelectElem::Attribute(a)})
-                )  
-                | variable_name => {|v| {let (name, field) = v;
+                variable_name => {|v| {let (name, field) = v;
                             let a = Attribute{name: name, field: field};
                             SelectElem::Attribute(a)}}
                
@@ -1145,7 +1138,7 @@ named!(builtin_function<BuiltIn>,
 
 
 
-named!(solution_modifier<(GroupBy, OrderBy, (i32, i32))>,
+named!(solution_modifier_clause<(GroupBy, OrderBy, (i32, i32))>,
     chain!(
         group: group_by ~
         space ~
