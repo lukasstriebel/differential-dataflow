@@ -1,4 +1,5 @@
 \documentclass[11pt,singlecolumn]{scrartcl}
+\usepackage{xcolor}
 \usepackage[masterthesis]{systems-cover}
 \usepackage{amsmath,amssymb,amstext}
 \usepackage[utf8]{inputenc}
@@ -9,7 +10,14 @@
 \usepackage{listings}
 \usepackage{url}
 \usepackage{titlesec}
+\usepackage{minted}
+\usepackage{subcaption}
+\usepackage{mwe}
+\usepackage{amssymb}
+\usepackage{ifsym}
+\usepackage{amsmath}
 
+\definecolor{bg}{rgb}{0.95,0.95,0.95}
 \titleformat*{\section}{\LARGE\bfseries}
 \titleformat*{\subsection}{\Large\bfseries}
 \titleformat*{\subsubsection}{\large\bfseries}
@@ -28,6 +36,7 @@
   tabsize=3
 }
 
+
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[LE,RO]{A High-level Graph Query Language Interface for Differential Dataflow}
@@ -36,6 +45,7 @@
 \fancyfoot[RE,lO]{Master Thesis}
 \fancyfoot[LE,RO]{\thepage}
 
+\newcommand{\rust}[1]{\mintinline{rust}{#1}}
 \renewcommand{\headrulewidth}{2pt}
 \renewcommand{\footrulewidth}{1pt}
 
@@ -43,7 +53,7 @@
 \covertitle{A High-level Graph Query Language Interface for Differential Dataflow}
 \coverauthor{Lukas Striebel}
 \coverdate{October 2016 - April 2017}
-\coversupervisedby{Prof.\ Timothy Roscoe\\Dr. Ioannis Liagouris\\Dr. Desislava Demitrova\\Moritz Hoffmann}
+\coversupervisedby{Prof.\ Timothy Roscoe\\Dr. Ioannis Liagouris\\Dr. Desislava Dimitrova\\Moritz Hoffmann}
 
 
 \begin{document}
@@ -53,12 +63,14 @@
  \textbf{Abstract} \end{center}
 In today's business world, Social Networks have become one of the most important if not the most important platforms to advertise and attract new customers. Thus, graph databases have been increasing in popularity in comparison to traditional relational databases. This tendency has given birth to the need of powerful and graph datawarehouses and query evaluators. In this thesis, we present Qlidaf, an Interface of the Property Graph Query Language for Diffrerential Dataflow.
 
-
 \clearpage
 \tableofcontents
 \clearpage
 \listoffigures
 \clearpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \section{Introduction}
 \subsection{Motivation}
 In our modern digital age, the Internet is the largest centre of data and knownledge. The websites of large companies are accessed thousands of times a day. In order to cope with this huge amount of client requests, large sever farms were built. In these farms, hundreds of servers and switches are connected and request have to travel across multiple machines until they are answered. Thus, the need for a system that directs and balances the huge amount of request arises. The first step to deal with this challenge is to model this complicated network of computers as a property graph. In a second step, an algorithm determines how the request should best be directed in order to not overload any part of the network. This thesis focuses on the second step and proposes a program that can evaluate queries on a property graph, in order to determine weak links and find the optimal distribution of the work load.
@@ -68,29 +80,36 @@ First, we give an overview of the technologies used in the Thesis in Section 2.\
 We continue by giving a detailed explanation of the query parser  in Chapter 3. In Section 4, we explain how the program sets up the dataflows according to the query. Next, we describe the experiments that were run in order to determine the performance of the program in Chapter 5. Finally, we draw our conclusion, provide an outlook and show potential for future work.
 \clearpage
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \section{Background}
 In this section, all the relevant technologies used in the Thesis are explained.
 \subsection{The Property Graph Query Language}
 
-The Property Graph Query Language (PGQL) was developed by Oskar van Rest at Oracle. \cite{vanRest:2016} PGQL enables developers to write intuitive path queries over a property graph. A PGQL query consists of 4 clauses, two of them are optional.
+The Property Graph Query Language (PGQL) was developed by Oskar van Rest at Oracle\cite{vanRest:2016}. PGQL enables developers to write intuitive path queries over a property graph. The syntax of PGQL greatly resembles the one of SQL. A PGQL query consists of 4 clauses, two of them are optional.
 \begin{itemize} 
 \item Path Clause (optional)
 \item Select Clause (required)
 \item Where Clause (required)
 \item Solution Modifier Clause (optional)
 \end{itemize}
-
-In the Path Clause custom path patterns are defined, which are to be used again in the Where Clause.\\
-\textbf{Example:}\\
-\begin{lstlisting}
-PATH connects_to := (:Generator) -[:has_connector]-> (:Connector WITH status = 'OPERATIVE') <-[:has_connector]- (:Generator)
- \end{lstlisting}
-The Select Clause bears great similarity to the SQL one. Here, the set of properties one wishes to retrieve is defined. Possible Selections are either\\
+In the following, we will give a short overview of the four clauses. We will go into more detail in section 3, in which we explain precisely how each clause has to be parsed.\\\\
+In the \textbf{Path Clause} custom path patterns are defined, which are to be used again in the Where Clause.\\
+\textbf{Example:}
+\begin{verbatim}
+PATH connects_to := (:Generator) --> (:Connector WITH status = 'OPERATIVE')
+ \end{verbatim}
+\noindent In this example, we define connects\_to as an edge between a generator and an operating connector.\\\\
+The \textbf{Select Clause} bears great similarity to the SQL one. Here, the set of properties one wishes to retrieve is defined. Possible Selections are either\\
 \begin{itemize} 
 \item everything, indicated by the use of * 
 \item certain attributes of edges and/or vertices
 \item Aggregation of certain attributes of edges and/or vertices.
 \end{itemize}
+\textbf{Example:}
+\begin{verbatim}
+SELECT v.name, AVG(v.age)
+ \end{verbatim} 
  Currently, there are five types of aggregations supported:\\
  \begin{itemize} 
 \item COUNT, returns the number of tuples in the solution 
@@ -99,22 +118,24 @@ The Select Clause bears great similarity to the SQL one. Here, the set of proper
 \item SUM, returns the sum of an attribute over all the tuples. The specified attribute has to be numeric.
 \item AVG, returns the average of an attribute over all the tuple. The specified attribute has to be numeric.
 \end{itemize}
-\textbf{Example:}\\
-\begin{lstlisting}
-SELECT v.name, AVG(v.age)
- \end{lstlisting} 
-The most complex part of the query is the Where Clause. In this section, all the requirements that the edges and vertices of the result set have to fulfill are specified.
-\textbf{Example:}\\
+
+The most complex part of the query is the \textbf{Where Clause}. In this section, all the requirements that the edges and vertices of the result set have to fulfill are specified.\\
+\textbf{Example:}
 \begin{verbatim}
-  WHERE v.name = 'Alice', v.age > 30
+WHERE v.name = 'Alice', v.age > 30, w.name != 'Bob', v -> w
 \end{verbatim}
 
-The official PGQL Specifications can be accessed online at \cite{PGQLSpec}
-\clearpage
-\subsection{Dataflow Programming}
-Dataflow oriented programming is a programming paradigm that models a program as a directed graph of data flowing between operations.
+Finally, the result set can be modified in the \textbf{Solution Modifier Clause}. This Clause can be broken down into four subsections, which are all extremly similiar to their SQL counterpart:\\\\
+\textbf{Group by} \quad In the group by the developer specifies the attributes that shall be used for the aggregation in the select clause.\\\\
+\textbf{Order by} \quad A set of attributes that determine the order of the results, either ascending or descending.\\\\
+\textbf{Limit} \quad Provides the maximum cardinality of the result set.\\\\
+\textbf{Offset} \quad Denotes how many tuples of the result set shall be skipped.\\\\
 
-\clearpage
+\noindent The official PGQL Specifications can be accessed online at \cite{PGQLSpec}
+
+\subsection{Dataflow Programming}
+Dataflow oriented programming is a programming paradigm that models a program as a directed graph of data flowing between operations. 
+
 
 \subsection{Differential Dataflow}
 
@@ -122,16 +143,16 @@ Developed by Frank McSherry at Microsoft, Differential dataflow is a data-parall
 Differential Dataflow is an extension of Timely Dataflow, which was also created by Frank McSherry. \cite{GitTimely}
 Rather than rewriting the entire data every time a change occurs, Differential Dataflow only keeps track of the changes made to the data. This allows for huge timesavings when executing the same operation multiple times on different data, since the results of previous computations can be reused.\\\\
 Differential Dataflow is open-source and available for download at \cite{GitDiff}.
-\clearpage
+
 
 \subsection{The Rust Programming Language}
-Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the year 2009, Mozilla offically began sponsering the project.\\
-Rust has been praised as it combines guaranteed memory safety with minimal runtime. Other prominent features are zero-cost abstractions, move semantics, threads without data races, trait-based generics, pattern matching, type inference and efficient C bindings\cite{RustLang}. The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, host by the Stack Overflow Community.
-Rust is completly opensource, and a big part of the code was written by members of the community.
-\clearpage
+Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the year 2009, Mozilla offically began sponsering the project. It took another 6 years until the first stable version of the compiler was released. Nowadays most of the development is done by volunteers from the rust community.\\
+Rust has been praised as it combines guaranteed memory safety with minimal runtime. Other prominent features are ''zero-cost abstractions, move semantics, threads without data races, trait-based generics, pattern matching, type inference and efficient C bindings''\cite{RustLang}. The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, hosted by the Stack Overflow Community.\\\\
+Rust is completly opensource, and a big part of the code was written by members of the community. It is currently licensed unter the Apache and MIT license.
+
 
 \subsection{Nom}
-The Parser is build using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process.\\\\
+Our Query Parser is built using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process.\\\\
 The most commonly used macros were:
 \begin{itemize} 
 \item do\_parse!: Takes a list of parsers as inputs and applies them sequentially, finally returns a tupel.
@@ -147,35 +168,102 @@ Nom is open-source and available for download at \cite{GitNom}.
 
 \clearpage
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \section{Parser}
-In the following, we describe how our parser is build. As mentioned in Section 2.1, the Parser has to recognize the following 4 clauses: Path definitions, select, where, solution modifier.
-\\The main parse function therefore looks:
-\begin{lstlisting}
+In the following, we describe how our parser is built. As mentioned in Section 2.1, the Parser has to recognize the following 4 clauses: Path definitions, select, where, solution modifier.
+\\The main parse function therefore looks as follows:\\
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 named!(pgql_query<Query>,
-	do_parse!(
-		paths: opt!(paths) >>
-		space >>
-		select: select_clause >>
-		space >>
-		vvhere: where_clause >>
-		space >>
-		solmod: opt!(solutionModifier) >>
-		(Query { select: select, vvhere: vvhere, paths: paths, solmod: solmod})
+    do_parse!(
+        paths: opt!(path_clause) >>
+        space >>
+        select: select_clause >>
+        space >>
+        vvhere: where_clause >>
+        space >>
+        solmod: opt!(solution_modifier_clause) >>
+        (Query { select: select, vvhere: vvhere, paths: paths, solmod: solmod})
      )
 );
- \end{lstlisting} 
-\clearpage
+ \end{minted} 
+
 
 \subsection{Path Clause}
 
 The Path Clause is a list of definitions. Each Path definition starts with a name, followed by `:=' and then a path description. The path defined in this clause can then be reused in the Where Clause. One of many difficulties encountered while writing the parser, is the ability to differentiate between a single path definition and multiple ones, seperated by commas.
 
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(path_clause<Vec<(String, Connection)> >,
+    many0!(
+        chain!( 
+            p: path ~
+            opt!(space) ~
+            tag!("\n"),
+            || p
+        )
+    )
+);
 
-\clearpage
+named!(path<(String, Connection)>,
+    chain!( 
+        tag_no_case_s!("path") ~
+        space ~
+        name: char_only ~
+        opt!(space) ~
+        tag!(":=") ~
+        opt!(space) ~
+        pattern: path_pattern,
+        || (String::from(name),pattern)
+    )
+);
+
+\end{minted}
 \subsection{Select Clause}
-The Select Clause of PGQL is very similar to the SQL one. Started by the keyword `Select', a list of attributes is provided. Attributes may be renamed with the keyword `as'. Aggregate functions like `Sum', `Avg' etc. may also be accessed.
+The Select Clause of PGQL is very similar to the SQL one. Started by the keyword `Select', a list of attributes is provided. Attributes may be renamed with the keyword `as'. Aggregate functions like `Sum', `Avg' etc. may also be accessed.\\
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(select_clause<Vec<SelectElem> >,
+    chain!( 
+        tag_no_case_s!("select") ~
+        space ~
+        select_elems: many1!(select_elems),
+        || select_elems
+    )
+);
 
-\clearpage
+named!(select_elem<SelectElem>,
+	alt_complete!(
+		aggregate => {|aggregation| SelectElem::Aggregation(aggregation)} |
+		variable_name => {
+			|v| {let (name, field) = v;
+			let a = Attribute{name: name, field: field};
+			SelectElem::Attribute(a)}
+		} |
+		tag_s!("*") => {|_| SelectElem::Star}
+	)     
+);
+\end{minted}
 
 \subsection{Where Clause}
 The Where Clause consists of a list of Constraints. Each constraint defines either a path or value requirement that has to be fulfilled by the respective vertex or edge.
@@ -190,7 +278,14 @@ The Where Clause consists of a list of Constraints. Each constraint defines eith
  \end{itemize}
  
 \textbf{Code sample}
-\begin{lstlisting}
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 named!(query_vertex<Vertex>,
     delimited!(
         char!('('),
@@ -221,7 +316,7 @@ named!(query_vertex<Vertex>,
         char!(')')
   )
 );
- \end{lstlisting} 
+ \end{minted} 
  
  The connection between two vertices can be a very simple or a very sophisticated edge with many attributes. An edge is defined by an arrow sign -\textgreater and its properties are specified inside the brackets (or at a later point in time). There are three parameteres, all of them are completly optional:\\
  \begin{itemize}
@@ -231,7 +326,14 @@ named!(query_vertex<Vertex>,
  \end{itemize}
  
 \textbf{Code sample}
- \begin{lstlisting}
+ \begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 named!(query_edge<Edge>,
         alt_complete!(
             tag!("-->") => { |_| Edge {name: String::from(""), inverted: false, constraints: Vec::new() } } |
@@ -264,8 +366,7 @@ named!(query_edge<Edge>,
                 ),
                 tag!("]->")
  );
- \end{lstlisting}
- \clearpage
+ \end{minted}
  \subsubsection{Value Constraints}
  Value Constraints are constraints on attributes of the Vertex, e.g. name = `Alice' or age \textless  40. Every Value Constraint has to include one or multiple vertex attributes, and one or more Literals. Literals are raw values, and come in 3 types:
  \begin{itemize} 
@@ -274,7 +375,14 @@ named!(query_edge<Edge>,
 \item Booleans, which are either true or false
 \end{itemize}
  
- \begin{lstlisting}
+ \begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 pub enum Literal {
     Str(String),
     Float(f32),
@@ -289,10 +397,16 @@ named!(literal<Literal>,
             
     )
 );
- \end{lstlisting}
+ \end{minted}
  
+ Possible operateros are:\\
+ \begin{itemize}
+ \item arithmetric: addition, subtraction, multiplication, division, modulo
+ \item comperative: equals, not equals, greater, greater equals, smaller, smaller equals
+ \item boolean: and, or, not
+ \item string: like. The like is denoted as ~= and tests if a string is contained within another string. For example `lice' ~= `Alice' returns true.
+ \end{itemize}
  
- \clearpage
  
  \subsection{Solution Modifier Clause}
  
@@ -303,10 +417,28 @@ named!(literal<Literal>,
 \item Offset and Limit Clause
 \end{itemize}
  All clauses are optional and can be omitted. 
- 
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(solution_modifier<(GroupBy, OrderBy, (i32, i32))>,
+    chain!(
+        group: group_by ~
+        space ~
+        order: order_by ~
+        space ~
+        limit: limit_offset,
+        || (group, order, limit)
+    )
+);
+ \end{minted}
 \clearpage
 
-
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Query Evaluation}
 In this chapter we will discuss how we construct the dataflow from our queries.
@@ -315,15 +447,125 @@ The Loading of the graph plays a major part of the entire program execution time
 \textbf{Small sample graph}
 \begin{lstlisting}
 1 * { 'Server' }             name:'center'   ip:'192.168.0.0'   ram:4
-2 * { 'VM' }                 name:'node1'    ip:'192.168.0.1'	ram:8
-3 * { 'Firewall' 'VM' }      name:'node2'    ip:'192.168.0.2'	ram:16.5
-4 * { 'Host' 'Server' 'VM' } name:'node3'    ip:'192.168.0.3'	ram:32.5
-5 * { 'Switch' }             name:'node4'    ip:'192.168.0.4'	ram:64.5
+2 * { 'VM' }                 name:'node1'    ip:'192.168.0.1'   ram:8
+3 * { 'Firewall' 'VM' }      name:'node2'    ip:'192.168.0.2'   ram:16.5
+4 * { 'Host' 'Server' 'VM' } name:'node3'    ip:'192.168.0.3'   ram:32.5
+5 * { 'Switch' }             name:'node4'    ip:'192.168.0.4'   ram:64.5
 1 2 'connectss' bandwidth:1.5 utilization:0.14
 2 3 'connects' bandwidth:2.1 utilization:0.22
 2 4 'connects' bandwidth:1.1 utilization:0.38
 4 5 'connects' bandwidth:1.3 utilization:0.58
 \end{lstlisting}
+
+The graph parser looks as folllows:\\  
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(graph_parser<Graph>,
+    chain!(
+        nodes: many1!(node) ~
+        edges: many1!(edge),
+        || Graph {nodes: nodes, edges: edges}
+    )
+);
+\end{minted}
+Each vertex begins with an integer, representing the ID of the vertex, follow by an asterix. Subsequently the lables of the vertex are presented, delimited by curly brackets. At least one label has to be provided whereas an upper limit does not exist. Finally, all the attributes of the vertex are presented in a JSON-like fashion. \\
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(node<Node>,
+    chain!(
+        id: unsigned_int ~
+        space ~
+        char!('*') ~
+        space ~
+        labels: labels ~
+        space ~
+        attr: attributes ~
+        line_end,
+        || {
+            let mut map = HashMap::with_capacity(attr.len());
+            for elem in attr{
+                let (name, value) = elem;
+                map.insert(String::from(name), value);
+            }
+            Node {id: id, label: labels, attribute_values: map }            
+        }
+    )
+
+);
+
+named!(labels<Vec <String> >, 
+    chain!(
+        char!('{') ~
+        opt!(space) ~
+        labels: many1!(
+            chain!(
+                s: string ~
+                opt!(space),
+                || String::from(s)
+            ) ~ 
+        char!('}'),
+        || labels
+    )
+);
+
+named!(attributes< Vec< (&str, Literal) > >,
+    many0!(
+        chain!(
+            name: char_only ~
+            opt!(space) ~
+            char!(':') ~
+            opt!(space) ~
+            value: literal ~
+            opt!(space),
+            || (name, value)
+        )
+    )
+);
+\end{minted}
+The edges of the graph are parsed in a very similiar way. There are two main differences: instad of an asterix, a second integer is given denoting the ID of the target vertex, while the first integer determines the ID of the source vertex. Additionally, edges must have exactly one single label. The rest remains unchanged in comparison to the vertex parser.
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(edge<GraphEdge>,
+    chain!(
+        source: unsigned_int ~
+        space ~
+        target: unsigned_int ~
+        space ~
+        label: string ~
+        space ~
+        attr: attributes ~
+        line_end,
+        || {
+            let mut map = HashMap::with_capacity(attr.len());
+            for elem in attr{
+                let (name, value) = elem;
+                map.insert(String::from(name), value);
+            }
+            GraphEdge {source: source, target: target, label:String::from(label), attribute_values: map }
+        }
+    )
+);
+\end{minted}
+
+
 \clearpage
 \subsection{Construction of the Dataflow}
 The biggest challenge in the thesis was translating the PGQL query into a dataflow. As described in chapter 3, a query contains a vector of projections and a vector of constraints. We chose to apply the projections at the vey latest point in time. Thus, our evaluation begins with the second vector.\\\\
@@ -333,8 +575,15 @@ First, we iterate through the vector and sort the constraints by type:\\
 \item If the constraint is a path pattern, it is put into a seperate vector.
 \item If the constraint is an expression, we determine the name of the involved vertex or edge by recursively exploring the expression. Once the variable name is known, the expression is then pushed into a Hashmap of Vectors. For each variable there exists a seperate vector with expressions. This grouping helps tremendously when filtering the vertex set later on.
 \end{itemize}
-\textbf{Code sample}
-\begin{lstlisting}
+\textbf{Code sample}\\
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 for constraint in &vvhere{
                 match constraint {
                     &Constraint::PathPattern(ref pattern) => connections.push(pattern),
@@ -351,7 +600,7 @@ for constraint in &vvhere{
                     },
                 }
             }
-\end{lstlisting}
+\end{minted}
 \subsection{Constructing an execution plan}
 Once we have iterated over the entire vector, we begin the construction of an execution plan. We iterate through all the path patterns (we have stored them previously in a seperated vector) and make a decision how to construct the plan. There are three possibilities:
 \begin{itemize}
@@ -360,7 +609,14 @@ Once we have iterated over the entire vector, we begin the construction of an ex
 \item Both the source and the target of the edge have appeared before. In this case, we are dealing with a loop in the query. Thus, we do not need to join any sets, but we can just enforce an additional constraint on the ids.
 \end{itemize}
 \textbf{Code sample}
-\begin{lstlisting}
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 for connection in connections {
                 if !used_fields.contains(&connection.source.name) {
                     used_fields.insert(&connection.source.name);
@@ -439,99 +695,121 @@ for connection in connections {
                 }
 
             }
-\end{lstlisting}
+\end{minted}
 \subsection{Selection on the vertex set}
 The next step is to apply all the selections we have sorted beforehand on the vertex set. For each non-anonymous vertex, we filter the entire set and save the result in a Hashmap. The key in this Hashmap is the name of the vertex.
 \textbf{Code sample}
-\begin{lstlisting}
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+let mut plans = HashMap::new();
 for (name, filter) in selections {
-                let result = vertices.filter(move |x| {
-                    check_node(&x, &filter)
-                });
-
-                plans.insert(name, result);
-            }
-\end{lstlisting}
+    let result = vertices.filter(move |x| {
+        check_node(&x, &filter)
+    });
+    plans.insert(name, result);
+}
+\end{minted}
 \subsection{Executing the plan}
+After constructing a plan, we iterate over through all the steps we assemble in the chapter 4.4. In the beginng, our result, which is a Collection of Vectors of Vertices, is empty. We begin by pulling the source's vertex collection from the Hasmap we defined in section 4.5. The Hashmap's key is the name of the vertex. Once we have the correct vertex collections, we join it with the edge set, and map the result, in order to keep track of the vertex ID of the target. We then repeat this step for the target vertex. We end up with a vector of vertices, which we store as the result.\\\\
+If there are more elements in the execution plan, we repeat the previous steps until we are done. The only difference is that we reuse our previous result, instead of pulling a new collection from our vertex Hashmap.
 \textbf{Code sample}
-\begin{lstlisting}
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 let mut result = None;
-                for step in execution_plan {
-
-                    //let constraints = &step.constraints 
-                    
-                    if step.join && step.join_id == 0 {
-                        let sources = match plans.get(&step.left){
-                            None => vertices,
-                            Some(list) => list,
-                        };
-
-                        let targets = match plans.get(&step.right){
-                            Some(list) => list,
-                            None => vertices,
-                        };
-                        result =    Some(sources.map(|x| (x.id, x))
-                                    .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
-                                    .map(|x| (x.source,x.target)))
-                                    .map(|(_,v1,v2)| (v2,v1))
-                                    .join(&targets.map(|x| (x.id, x)))
-                                    .map(|(_,v1,v2)| vec![v1,v2]));
-                    }
-                    else if !step.join {
-                        let int = step.join_id;
-                        let int2 = step.filter_id;
-                        result = Some(result.unwrap().map(move |x| (x[int].id, x))
-                                .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
-                                .map(|x| (x.source,x.target)))
-                                .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[int2].id == *id})
-                                .map(|(_,v1,_)| v1));
-
-                    }
-                    else {                 
-                        let targets = match plans.get(&step.right){
-                            Some(list) => list,
-                            None => vertices,
-                        };
-                        result = Some(result.unwrap().map(move |vec| (vec[step.join_id].id, vec))
-                                .join(&edges.filter(move |x| true)//check_edge(&x, &step.constraints))
-                                .map(|x| (x.source,x.target)))
-                                .map(|(_,v1,v2)| (v2,v1))
-                                .join(&targets.map(|x| (x.id, x)))
-                                .map(|(_, mut v1,v2)| {v1.push(v2);v1}));   
-                    }
-                }
- \end{lstlisting} 
+for step in execution_plan {   
+    if step.join && step.join_id == 0 {
+        let sources = match plans.get(&step.left){
+            None => vertices,
+            Some(list) => list,
+        };
+        let targets = match plans.get(&step.right){
+            Some(list) => list,
+            None => vertices,
+        };
+        result =    Some(sources.map(|x| (x.id, x))
+                    .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
+                    .map(|x| (x.source,x.target)))
+                    .map(|(_,v1,v2)| (v2,v1))
+                    .join(&targets.map(|x| (x.id, x)))
+                    .map(|(_,v1,v2)| vec![v1,v2]));
+    }
+    else if !step.join {
+        let int = step.join_id;
+        let int2 = step.filter_id;
+        result = Some(result.unwrap().map(move |x| (x[int].id, x))
+                .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
+                .map(|x| (x.source,x.target)))
+                .filter(move |x| {let &(ref key, ref vec, ref id) = x; vec[int2].id == *id})
+                .map(|(_,v1,_)| v1));
+    }
+    else {                 
+        let targets = match plans.get(&step.right){
+            Some(list) => list,
+            None => vertices,
+        };
+        result = Some(result.unwrap().map(move |vec| (vec[step.join_id].id, vec))
+                .join(&edges.filter(move |x| check_edge(&x, &step.constraints))
+                .map(|x| (x.source,x.target)))
+                .map(|(_,v1,v2)| (v2,v1))
+                .join(&targets.map(|x| (x.id, x)))
+                .map(|(_, mut v1,v2)| {v1.push(v2);v1}));   
+    }
+}
+ \end{minted} 
 \subsection{Applying the projection and aggregation}
+The final step is to apply the projections and the aggregation that were passed in a vector. In order to do get the desired result, we iterate over this vector and take the appropriate action depending what attribute is asked for by the user. In case of an aggregation, we first group the records, and then count, sum  etc. the values.
 \textbf{Code sample}
-\begin{lstlisting}
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 for projection in &select{
-                            match projection {
-                                &SelectElem::Star => {
-                                    list.inspect(|&(ref x,_)| println!("{:?}", x));
-                                },
-                                &SelectElem::Attribute(ref attr) => {
-                                    //let strng = string_to_static_str(attr.name.clone());
-                                    let field = string_to_static_str(attr.field.clone());
-                                    let id = *(names.get(&attr.name).unwrap());
-                                    list.inspect(move |&(ref x,_)| println!("{:?}", x[id].get(&field.into()).unwrap()));
-                                    
-                                    
-                                },
-                                &SelectElem::Aggregation(ref aggr) => {
-                                    match aggr {
-                                        &Aggregation::Count(ref attr) => {
-                                                list.map(move |x| (1, x)).group(move |key, vals, output| {
-                                                        let mut count = 0;
-                                                        for _ in vals {
-                                                            count = count + 1;
-                                                        }                                                        
-                                                        output.push(((),count));
-                                                    }).inspect(|&(_, ref x)| println!("{:?}", x));
-                                                
-                                            }
- \end{lstlisting} 
+    match projection {
+        &SelectElem::Star => {
+            list.inspect(|&(ref x,_)| println!("{:?}", x));
+        },
+        &SelectElem::Attribute(ref attr) => {
+            let field = string_to_static_str(attr.field.clone());
+            let id = *(names.get(&attr.name).unwrap());
+            list.inspect(move |&(ref x,_)| println!("{:?}", x[id].get(&field.into()).unwrap()));
+        },
+        &SelectElem::Aggregation(ref aggr) => {
+            match aggr {
+                &Aggregation::Count(ref attr) => {
+                        list.map(move |x| (1, x)).group(move |key, vals, output| {
+                                let mut count = 0;
+                                for _ in vals {
+                                    count = count + 1;
+                                }                                                        
+                                output.push(((),count));
+                            }).inspect(|&(_, ref x)| println!("{:?}", x));        
+                }
+            }
+        }
+    }
+}
+ \end{minted}
+\subsection{Evaluating an expression}
+It is of 
 \clearpage
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Results and Discussion}
 
@@ -556,8 +834,12 @@ In total, we ran seven different queries, with each subsequent query being more 
 \caption{An overview of the seven queries, run with 32 workers}
 \end{figure}
 Throughout all seven queries, the following pattern is noticeable:\\
-The influence of the number of workers behaves unexpectedly, especially for queries 1,4 and 6. In a perfect world, the query latency would be inversely proportional to the number of workers. However, we only observe this behaviour for query 5, and only for the fattree topologies.\\More often than not, an increase of worker threads leads to a higher latency, especially when the latency is already quite low, around the 50 to 200 millisecond range. We reason that this happens because at that level, the communication overhead dominates the time savings achieved by parallelism. This claim is additionally supported by the fact, that query 5 has one of the longest latencies, ranging up to 10 seconds. When evaluating queries with lower latency, the contention between the workers increases and we frequently observe that the best performance is achieved when running the query with just a single worker.\\
-The following pages contain the dataflows executing the query and the evaluation times distribution for each of the seven queries
+The influence of the number of workers behaves unexpectedly, especially for queries 1,4 and 6. In a perfect world, the query latency would be inversely proportional to the number of workers. However, we only observe this behaviour for query 5, and only for the fattree topologies.\\More often than not, an increase of worker threads leads to a higher latency, especially when the latency is already quite low, around the 50 to 200 millisecond range. We reason that this happens because at that level, the communication overhead dominates the time savings achieved by parallelism. This claim is additionally supported by the fact, that query 5 has one of the longest latencies, ranging up to 10 seconds. When evaluating queries with lower latency, the contention between the workers increases and we frequently observe that the best performance is achieved when running the query with just a single worker.\\\\
+Furthermore graphs with smaller sizes show larger variance than their counterpart when run with more than four workers. This behaviour is due to the fact that the time spent coordination the different threads plays a bigger role in small graphs. The time savings achieved by parallelization are outweighed by the communication overhead.\\\\
+The following pages contain the dataflows executing the query and the evaluation times distribution for each of the seven queries. While describing the dataflows, we use the following notation:\\\\
+\textbf{Projections} are denoted by the symbol \(\pi\). They always occur at the very end of a query.\\\\
+\textbf{Selections} are denoted by the symbol \(\sigma\)..\\\\
+\textbf{Selections} are denoted by the symbol \(\bowtie\).  .\\\\
 
 \clearpage
 
@@ -575,32 +857,43 @@ SELECT u.name WHERE u.label() = 'switch', u.position = 'access'
 \caption{Dataflow Query1}
 \end{figure}
 \clearpage
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfl/q1}
-    \captionof{figure}{Large Fattree}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfs/q1}
-    \captionof{figure}{Small Fattree}
-  \end{minipage}
-\end{figure}
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjl/q1}
-    \captionof{figure}{Large Jellyfish}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjs/q1}
-    \captionof{figure}{Small Jellyfish}
-  \end{minipage}
-\end{figure}
+\begin{figure*}
+        \centering
+        \begin{subfigure}[b]{0.475\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{boxesfl/q1}
+            \caption[Network2]%
+            {{\small Large Fat Tree}}    
+            \label{fig:mean and std of net14}
+        \end{subfigure}
+        \hfill
+        \begin{subfigure}[b]{0.475\textwidth}  
+            \centering 
+            \includegraphics[width=\textwidth]{boxesfs/q1}
+            \caption[]%
+            {{\small Small Fat Tree}}    
+            \label{fig:mean and std of net24}
+        \end{subfigure}
+        \vskip\baselineskip
+        \begin{subfigure}[b]{0.475\textwidth}   
+            \centering 
+            \includegraphics[width=\textwidth]{boxesjl/q1}
+            \caption[]%
+            {{\small Large Jellyfish}}    
+            \label{fig:mean and std of net34}
+        \end{subfigure}
+        \quad
+        \begin{subfigure}[b]{0.475\textwidth}   
+            \centering 
+            \includegraphics[width=\textwidth]{boxesjs/q1}
+            \caption[]%
+            {{\small Small Jellyfish}}    
+            \label{fig:mean and std of net44}
+        \end{subfigure}
+        \caption[ The average and standard deviation of critical parameters ]
+        {\small Boxplots for query 1} 
+        \label{fig:mean and std of nets}
+    \end{figure*}
 \clearpage
 \subsection{Query2}
 \begin{verbatim}
@@ -850,6 +1143,8 @@ SELECT v.name WHERE (u WITH position = 'access')
 \end{figure}
 \clearpage
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \section{Related Work}
 In this chapter we give an overview of other existing graph databases and query evluators.
 
@@ -876,11 +1171,16 @@ SQLGraph is a Graph Store that combines existing relational optimizers with a no
 GRAPHiQL is an intuitive query language for graph analytics, which allows developers to reason in terms of nodes and edges rather than the tables and joins which are used in relational databases. GRAPHiQL provides key graph constructs such as looping, recursion, and neighborhood operations. At runtime, GRAPHiQL compiles graph programs into efficient SQL queries that can run on any relational database. \cite {Graphiql}
 \clearpage
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \section{Summary}
 
 \subsection{Conclusion}
-
+In this thesis we presented qlidaf, a program to evaluate PGQL queries in a dataflow environment. We showed how our program parsers queries and graphs, and then evaluates said query on the graph.
 \subsection{Future Work}
+\textbf{Shortest Path} \quad Extend the evaluator to find the shortest path.\\
+\textbf{Additional Joins} \quad Enable joins in the value constraint, e.g. v.age = u.age.\\
+\textbf{Query Optimizer} \quad Implement a query optimizer.
 \subsection{Acknowledgements}
 I would like to thank my supervisors John Liagouris, Desislava Dimitrova and Moritz Hoffmann for their continuous support and help. They provided many meaningful suggestions and proposals. Their expertise and experience was invaluable.\\\\
 I would also like to thank Professor Roscoe for taking the time to supervise my thesis.
