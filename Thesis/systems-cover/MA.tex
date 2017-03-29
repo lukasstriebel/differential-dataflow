@@ -61,7 +61,7 @@
 \hspace{60mm}
 \begin{center}
  \textbf{Abstract} \end{center}
-In today's business world, Social Networks have become one of the most important if not the most important platforms to advertise and attract new customers. Thus, graph databases have been increasing in popularity in comparison to traditional relational databases. This tendency has given birth to the need of powerful and graph datawarehouses and query evaluators. In this thesis, we present Qlidaf, an Interface of the Property Graph Query Language for Diffrerential Dataflow.
+In today's business world, Social Networks have become one of the most important if not the most important platforms to advertise and attract new customers. Thus, graph databases have been increasing in popularity in comparison to traditional relational databases. This tendency has given birth to the need of powerful graph datawarehouses and query evaluators. In this thesis, we present Qlidaf, an Interface of the Property Graph Query Language for Diffrerential Dataflow.
 
 \clearpage
 \tableofcontents
@@ -148,7 +148,22 @@ Differential Dataflow is open-source and available for download at \cite{GitDiff
 \subsection{The Rust Programming Language}
 Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the year 2009, Mozilla offically began sponsering the project. It took another 6 years until the first stable version of the compiler was released. Nowadays most of the development is done by volunteers from the rust community.\\
 Rust has been praised as it combines guaranteed memory safety with minimal runtime. Other prominent features are ''zero-cost abstractions, move semantics, threads without data races, trait-based generics, pattern matching, type inference and efficient C bindings''\cite{RustLang}. The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, hosted by the Stack Overflow Community.\\\\
-Rust is completly opensource, and a big part of the code was written by members of the community. It is currently licensed unter the Apache and MIT license.
+However, it is still possible to produce out-of-bonds array accesses, since these checks have to be done at runtime.\\
+In this thesis, we will often encounter recursive objects, such as trees for example. Since Rust does not have a null type, the children have to be wrapped in an object of type \textit{Box}, in order to avoid infinite recursion.\\
+ \begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+struct BinaryTree {
+	leftChild: Box<BinaryTree>,
+	rightChild Box<BinaryTree>,
+}
+\end{minted} 
+\\Rust is completly opensource, and a big part of the code was written by members of the community. It is currently licensed unter the Apache and MIT license.
 
 
 \subsection{Nom}
@@ -277,7 +292,7 @@ The Where Clause consists of a list of Constraints. Each constraint defines eith
  \item A set of inlined value constraints, recognized by the keyword WITH. This is basically just syntatic sugar, for example, the two formulation (v WITH age \textgreater 10) and (v), v.age \textgreater 10 are completly equal.
  \end{itemize}
  
-\textbf{Code sample}
+\textbf{Code sample}\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -295,8 +310,7 @@ named!(query_vertex<Vertex>,
             label: opt!(label_constraint) >>
             opt!(space) >>
             inlined: opt!(inlined_constraints) >>
-            ({
-                
+            ({                
                 let mut constraints: Vec<Expr> = match inlined {
                     Some(value) => value,
                     None => Vec::new()
@@ -308,8 +322,10 @@ named!(query_vertex<Vertex>,
                 }
 
                 match vertex_name {
-                    Some(name) => {Vertex{name: String::from(name), anonymous: false, constraints: constraints }},
-                    None => Vertex{name: String::from(""), anonymous: true, constraints: constraints }
+                    Some(name) => {Vertex{name: String::from(name),
+                                   anonymous: false, constraints: constraints }},
+                    None => Vertex{name: String::from(""),
+                                   anonymous: true, constraints: constraints }
                 }
             })                
         ),
@@ -325,7 +341,7 @@ named!(query_vertex<Vertex>,
  \item A set of inlined value constraints, recognized by the keyword WITH. This is basically just syntatic sugar, for example, the two formulation (v WITH age \textgreater 10) and (v), v.age \textgreater 10 are completly equal.
  \end{itemize}
  
-\textbf{Code sample}
+\textbf{Code sample}\\\\
  \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -336,8 +352,10 @@ linenos]
 {rust}
 named!(query_edge<Edge>,
         alt_complete!(
-            tag!("-->") => { |_| Edge {name: String::from(""), inverted: false, constraints: Vec::new() } } |
-            tag!("->") => { |_| Edge {name: String::from(""), inverted: false, constraints: Vec::new() } } | 
+            tag!("-->") => { |_| Edge {name: String::from(""),
+					 inverted: false, constraints: Vec::new() } } |
+            tag!("->") => { |_| Edge {name: String::from(""),
+					 inverted: false, constraints: Vec::new() } } | 
             delimited!(
                 tag!("-["),
                 do_parse!(
@@ -359,13 +377,50 @@ named!(query_edge<Edge>,
                         }
 
                         match edge_name {
-                            Some(name) => {Edge{name: String::from(name), inverted: false, constraints: constraints }},
-                            None => Edge{name: String::from(""), inverted: false, constraints: constraints }
+                            Some(name) => {Edge{name: String::from(name),
+					 inverted: false, constraints: constraints }},
+                            None => Edge{name: String::from(""), 
+					inverted: false, constraints: constraints }
                         }
                     })                
                 ),
                 tag!("]->")
  );
+ \end{minted}
+\\The PGQ Language allows to nest an unlimited amount of (vertex,edge,vertex)-tuples in one single constraint. I.e. after parsing an initial vertex, infinitely many vertices proceeded by an edge may follow. To process this chain of tuples, a fold function (line 13) has to be used. While iterating through this vector, we clone the previous vertex, then create an new connection and push it into another vector(line 21). This vector is then returned at the end of the function (line 24).\\\\
+ \begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(path_pattern<Vec<Connection> >,
+    chain!(
+        initial: query_vertex ~ 
+        remainder: many1!(
+            chain!(
+                space ~ 
+                edge: query_edge ~
+                space ~
+                target: query_vertex, 
+                || (edge, target)
+            )
+        ), ||
+    fold_connection(initial, remainder) 
+    )
+);
+
+fn fold_connection(initial: Vertex, remainder: Vec<(Edge, Vertex)>) -> Vec<Connection> {
+    let mut result = Vec::new();
+    let mut previous = initial;
+    for (edge, vertex) in remainder{
+        result.push(Connection{source: previous, target: vertex.clone(), edge: edge});
+        previous = vertex;
+    }
+    return result;
+}
  \end{minted}
  \subsubsection{Value Constraints}
  Value Constraints are constraints on attributes of the Vertex, e.g. name = `Alice' or age \textless  40. Every Value Constraint has to include one or multiple vertex attributes, and one or more Literals. Literals are raw values, and come in 3 types:
@@ -406,8 +461,37 @@ named!(literal<Literal>,
  \item boolean: and, or, not
  \item string: like. The like is denoted as ~= and tests if a string is contained within another string. For example `lice' ~= `Alice' returns true.
  \end{itemize}
- 
- 
+Expressions play a vital part in the parsing of a query.  For simplicity, only the addition and subtraction expression are shown in the following example.\\
+ \begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(expression< Expr >, chain!(
+    initial: operand ~ 
+    remainder: many0!(
+            alt!(
+                chain!(opt!(space) ~ tag!("+")  ~ opt!(space) ~ op: operand,   || (Oper::Add, op))       |
+                chain!(opt!(space) ~ tag!("-")  ~ opt!(space) ~ op: operand,   || (Oper::Sub, op))       
+             )
+        ), ||
+    fold_exprs(initial, remainder) 
+    )       
+);
+
+fn fold_exprs(initial: Expr, remainder: Vec<(Oper, Expr)>) -> Expr {
+    remainder.into_iter().fold(initial, |acc, pair| {
+        let (oper, expr) = pair;
+        match oper {
+            Oper::Add       => Expr::Add(Box::new(acc), Box::new(expr)),
+	 Oper::Sub       => Expr::Sub(Box::new(acc), Box::new(expr)),
+        }
+    })
+}
+ \end{minted} 
  \subsection{Solution Modifier Clause}
  
  The Solution Modifier Clause consists of three parts: 
@@ -416,7 +500,7 @@ named!(literal<Literal>,
 \item OrderClause
 \item Offset and Limit Clause
 \end{itemize}
- All clauses are optional and can be omitted. 
+ All clauses are optional and can be omitted.\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -474,7 +558,7 @@ named!(graph_parser<Graph>,
     )
 );
 \end{minted}
-Each vertex begins with an integer, representing the ID of the vertex, follow by an asterix. Subsequently the lables of the vertex are presented, delimited by curly brackets. At least one label has to be provided whereas an upper limit does not exist. Finally, all the attributes of the vertex are presented in a JSON-like fashion. \\
+\\Each vertex begins with an integer, representing the ID of the vertex, follow by an asterix. Subsequently the lables of the vertex are presented, delimited by curly brackets. At least one label has to be provided whereas an upper limit does not exist. Finally, all the attributes of the vertex are presented in a JSON-like fashion. \\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -504,7 +588,16 @@ named!(node<Node>,
     )
 
 );
+\end{minted}
 
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 named!(labels<Vec <String> >, 
     chain!(
         char!('{') ~
@@ -519,7 +612,16 @@ named!(labels<Vec <String> >,
         || labels
     )
 );
+\end{minted}
 
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
 named!(attributes< Vec< (&str, Literal) > >,
     many0!(
         chain!(
@@ -534,7 +636,7 @@ named!(attributes< Vec< (&str, Literal) > >,
     )
 );
 \end{minted}
-The edges of the graph are parsed in a very similiar way. There are two main differences: instad of an asterix, a second integer is given denoting the ID of the target vertex, while the first integer determines the ID of the source vertex. Additionally, edges must have exactly one single label. The rest remains unchanged in comparison to the vertex parser.
+\\The edges of the graph are parsed in a very similiar way. There are two main differences: instad of an asterix, a second integer is given denoting the ID of the target vertex, while the first integer determines the ID of the source vertex. Additionally, edges must have exactly one single label. The rest remains unchanged in comparison to the vertex parser.
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -559,7 +661,8 @@ named!(edge<GraphEdge>,
                 let (name, value) = elem;
                 map.insert(String::from(name), value);
             }
-            GraphEdge {source: source, target: target, label:String::from(label), attribute_values: map }
+            GraphEdge {source: source, target: target,
+		label:String::from(label), attribute_values: map }
         }
     )
 );
@@ -608,7 +711,7 @@ Once we have iterated over the entire vector, we begin the construction of an ex
 \item The source of the edge has already appeared before. In this case, we pull the target set, map the result we carried onto the correct id and then join them with the edge set.
 \item Both the source and the target of the edge have appeared before. In this case, we are dealing with a loop in the query. Thus, we do not need to join any sets, but we can just enforce an additional constraint on the ids.
 \end{itemize}
-\textbf{Code sample}
+\textbf{Code sample}\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -718,7 +821,7 @@ for (name, filter) in selections {
 \subsection{Executing the plan}
 After constructing a plan, we iterate over through all the steps we assemble in the chapter 4.4. In the beginng, our result, which is a Collection of Vectors of Vertices, is empty. We begin by pulling the source's vertex collection from the Hasmap we defined in section 4.5. The Hashmap's key is the name of the vertex. Once we have the correct vertex collections, we join it with the edge set, and map the result, in order to keep track of the vertex ID of the target. We then repeat this step for the target vertex. We end up with a vector of vertices, which we store as the result.\\\\
 If there are more elements in the execution plan, we repeat the previous steps until we are done. The only difference is that we reuse our previous result, instead of pulling a new collection from our vertex Hashmap.
-\textbf{Code sample}
+\textbf{Code sample}\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -806,7 +909,52 @@ for projection in &select{
 }
  \end{minted}
 \subsection{Evaluating an expression}
-It is of 
+It is of great importance to evaluate the expressions formulated in the query in the dataflow.\\\\
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+fn evaluate_expr (constraint: Expr, node: &Node) -> Literal {
+    match constraint{
+        Expr::Equal(left, right)         => Literal::Boolean(evaluate_expr(*left, node) == evaluate_expr(*right, node)),
+        Expr::NotEqual(left, right)      => Literal::Boolean(evaluate_expr(*left, node) != evaluate_expr(*right, node)),
+        Expr::Smaller(left, right)       => evaluate_expr(*left, node).smaller(evaluate_expr(*right, node)),
+        Expr::SmallerEq(left, right)     => evaluate_expr(*left, node).smaller_eq(evaluate_expr(*right, node)),
+        Expr::Greater(left, right)       => evaluate_expr(*left, node).greater(evaluate_expr(*right, node)),
+        Expr::GreaterEq(left, right)     => evaluate_expr(*left, node).greater_eq(evaluate_expr(*right, node)),
+        Expr::Like(left, right)          => evaluate_expr(*left, node).contains(evaluate_expr(*right, node)),
+        Expr::And(left, right)           => evaluate_expr(*left, node).and(evaluate_expr(*right, node)),
+        Expr::Or(left, right)            => evaluate_expr(*left, node).or(evaluate_expr(*right, node)),
+        Expr::Not(value)                 => evaluate_expr(*value, node).not(),
+        Expr::Label(label)               => Literal::Boolean(node.label.contains(&label)),
+        Expr::Add(left, right)           => evaluate_expr(*left, node).add(evaluate_expr(*right, node)),
+        Expr::Sub(left, right)           => evaluate_expr(*left, node).sub(evaluate_expr(*right, node)),
+        Expr::Mul(left, right)           => evaluate_expr(*left, node).mul(evaluate_expr(*right, node)),
+        Expr::Div(left, right)           => evaluate_expr(*left, node).div(evaluate_expr(*right, node)),
+        Expr::Modulo(left, right)        => evaluate_expr(*left, node).modulo(evaluate_expr(*right, node)),
+        Expr::Literal(value)             => value,
+        Expr::Attribute(attribute)       => {
+            match node.attribute_values.get(&attribute.field) {
+                Some(literal) => (*literal).clone(),
+                None => Literal::Boolean(false),
+                //panic!("Field {:?} does not exist!", &attribute.field) 
+                }
+            },
+        Expr::BuiltIn(_, function) => {
+            match function {
+                BuiltIn::Label => Literal::Str(node.label[0].clone()),
+                BuiltIn::Id => Literal::Float(node.id as f32),
+                _ => panic!("Function {:?} not supported for nodes", function)
+            }
+        }
+    }
+}
+
+ \end{minted}
 \clearpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -858,42 +1006,42 @@ SELECT u.name WHERE u.label() = 'switch', u.position = 'access'
 \end{figure}
 \clearpage
 \begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.475\textwidth}
         \centering
-        \begin{subfigure}[b]{0.475\textwidth}
-            \centering
-            \includegraphics[width=\textwidth]{boxesfl/q1}
-            \caption[Network2]%
-            {{\small Large Fat Tree}}    
-            \label{fig:mean and std of net14}
-        \end{subfigure}
-        \hfill
-        \begin{subfigure}[b]{0.475\textwidth}  
-            \centering 
-            \includegraphics[width=\textwidth]{boxesfs/q1}
-            \caption[]%
-            {{\small Small Fat Tree}}    
-            \label{fig:mean and std of net24}
-        \end{subfigure}
-        \vskip\baselineskip
-        \begin{subfigure}[b]{0.475\textwidth}   
-            \centering 
-            \includegraphics[width=\textwidth]{boxesjl/q1}
-            \caption[]%
-            {{\small Large Jellyfish}}    
-            \label{fig:mean and std of net34}
-        \end{subfigure}
-        \quad
-        \begin{subfigure}[b]{0.475\textwidth}   
-            \centering 
-            \includegraphics[width=\textwidth]{boxesjs/q1}
-            \caption[]%
-            {{\small Small Jellyfish}}    
-            \label{fig:mean and std of net44}
-        \end{subfigure}
-        \caption[ The average and standard deviation of critical parameters ]
-        {\small Boxplots for query 1} 
-        \label{fig:mean and std of nets}
-    \end{figure*}
+        \includegraphics[width=\textwidth]{boxesfl/q1}
+        \caption[Network2]%
+        {{\small Large Fat Tree}}    
+        \label{fig:mean and std of net14}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.475\textwidth}  
+        \centering 
+        \includegraphics[width=\textwidth]{boxesfs/q1}
+        \caption[]%
+        {{\small Small Fat Tree}}    
+        \label{fig:mean and std of net24}
+    \end{subfigure}
+    \vskip\baselineskip
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjl/q1}
+        \caption[]%
+        {{\small Large Jellyfish}}    
+        \label{fig:mean and std of net34}
+    \end{subfigure}
+    \quad
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjs/q1}
+        \caption[]%
+        {{\small Small Jellyfish}}    
+        \label{fig:mean and std of net44}
+    \end{subfigure}
+    \caption[  Boxplots for query 1 ]
+    {\small Boxplots for query 1} 
+    \label{fig:mean and std of nets}
+\end{figure*}
 \clearpage
 \subsection{Query2}
 \begin{verbatim}
@@ -908,32 +1056,43 @@ SELECT n.name WHERE (n) -[e with weight < 4]-> (m)\end{verbatim}
 \caption{Dataflow Query2}
 \end{figure}
 \clearpage
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfl/q2}
-    \captionof{figure}{Large Fattree}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfs/q2}
-    \captionof{figure}{Small Fattree}
-  \end{minipage}
-\end{figure}
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjl/q2}
-    \captionof{figure}{Large Jellyfish}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjs/q2}
-    \captionof{figure}{Small Jellyfish}
-  \end{minipage}
-\end{figure}
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.475\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{boxesfl/q2}
+        \caption[Network2]%
+        {{\small Large Fat Tree}}    
+        \label{fig:mean and std of net14}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.475\textwidth}  
+        \centering 
+        \includegraphics[width=\textwidth]{boxesfs/q2}
+        \caption[]%
+        {{\small Small Fat Tree}}    
+        \label{fig:mean and std of net24}
+    \end{subfigure}
+    \vskip\baselineskip
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjl/q2}
+        \caption[]%
+        {{\small Large Jellyfish}}    
+        \label{fig:mean and std of net34}
+    \end{subfigure}
+    \quad
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjs/q2}
+        \caption[]%
+        {{\small Small Jellyfish}}    
+        \label{fig:mean and std of net44}
+    \end{subfigure}
+    \caption[  Boxplots for query 2 ]
+    {\small Boxplots for query 2} 
+    \label{fig:mean and std of nets}
+\end{figure*}
 \clearpage
 \subsection{Query3}
 \begin{verbatim}
@@ -948,32 +1107,43 @@ SELECT n.name WHERE (n:switch) -> (m with position = 'distribution')\end{verbati
 \caption{Dataflow Query3}
 \end{figure}
 \clearpage
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfl/q3}
-    \captionof{figure}{Large Fattree}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfs/q3}
-    \captionof{figure}{Small Fattree}
-  \end{minipage}
-\end{figure}
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjl/q3}
-    \captionof{figure}{Large Jellyfish}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjs/q3}
-    \captionof{figure}{Small Jellyfish}
-  \end{minipage}
-\end{figure}
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.475\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{boxesfl/q3}
+        \caption[Network2]%
+        {{\small Large Fat Tree}}    
+        \label{fig:mean and std of net14}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.475\textwidth}  
+        \centering 
+        \includegraphics[width=\textwidth]{boxesfs/q3}
+        \caption[]%
+        {{\small Small Fat Tree}}    
+        \label{fig:mean and std of net24}
+    \end{subfigure}
+    \vskip\baselineskip
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjl/q3}
+        \caption[]%
+        {{\small Large Jellyfish}}    
+        \label{fig:mean and std of net34}
+    \end{subfigure}
+    \quad
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjs/q3}
+        \caption[]%
+        {{\small Small Jellyfish}}    
+        \label{fig:mean and std of net44}
+    \end{subfigure}
+    \caption[  Boxplots for query 3 ]
+    {\small Boxplots for query 3} 
+    \label{fig:mean and std of nets}
+\end{figure*}
 \clearpage
 \subsection{Query4}
 \begin{verbatim}
@@ -989,32 +1159,43 @@ SELECT n.name WHERE (n with position = 'distribution')
 \caption{Dataflow Query4}
 \end{figure}
 \clearpage
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfl/q4}
-    \captionof{figure}{Large Fattree}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfs/q4}
-    \captionof{figure}{Small Fattree}
-  \end{minipage}
-\end{figure}
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjl/q4}
-    \captionof{figure}{Large Jellyfish}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjs/q4}
-    \captionof{figure}{Small Jellyfish}
-  \end{minipage}
-\end{figure}
+\begin{figure*}
+        \centering
+        \begin{subfigure}[b]{0.475\textwidth}
+            \centering
+            \includegraphics[width=\textwidth]{boxesfl/q4}
+            \caption[Network2]%
+            {{\small Large Fat Tree}}    
+            \label{fig:mean and std of net14}
+        \end{subfigure}
+        \hfill
+        \begin{subfigure}[b]{0.475\textwidth}  
+            \centering 
+            \includegraphics[width=\textwidth]{boxesfs/q4}
+            \caption[]%
+            {{\small Small Fat Tree}}    
+            \label{fig:mean and std of net24}
+        \end{subfigure}
+        \vskip\baselineskip
+        \begin{subfigure}[b]{0.475\textwidth}   
+            \centering 
+            \includegraphics[width=\textwidth]{boxesjl/q4}
+            \caption[]%
+            {{\small Large Jellyfish}}    
+            \label{fig:mean and std of net34}
+        \end{subfigure}
+        \quad
+        \begin{subfigure}[b]{0.475\textwidth}   
+            \centering 
+            \includegraphics[width=\textwidth]{boxesjs/q4}
+            \caption[]%
+            {{\small Small Jellyfish}}    
+            \label{fig:mean and std of net44}
+        \end{subfigure}
+        \caption[  Boxplots for query 4 ]
+        {\small Boxplots for query 4} 
+        \label{fig:mean and std of nets}
+    \end{figure*}
 \clearpage
 
 \subsection{Query5}
@@ -1031,32 +1212,43 @@ SELECT v.name WHERE (u WITH position = 'access')
 \caption{Dataflow Query5}
 \end{figure}
 \clearpage
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfl/q5}
-    \captionof{figure}{Large Fattree}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfs/q5}
-    \captionof{figure}{Small Fattree}
-  \end{minipage}
-\end{figure}
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjl/q5}
-    \captionof{figure}{Large Jellyfish}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjs/q5}
-    \captionof{figure}{Small Jellyfish}
-  \end{minipage}
-\end{figure}
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.475\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{boxesfl/q5}
+        \caption[Network2]%
+        {{\small Large Fat Tree}}    
+        \label{fig:mean and std of net14}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.475\textwidth}  
+        \centering 
+        \includegraphics[width=\textwidth]{boxesfs/q5}
+        \caption[]%
+        {{\small Small Fat Tree}}    
+        \label{fig:mean and std of net24}
+    \end{subfigure}
+    \vskip\baselineskip
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjl/q5}
+        \caption[]%
+        {{\small Large Jellyfish}}    
+        \label{fig:mean and std of net34}
+    \end{subfigure}
+    \quad
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjs/q5}
+        \caption[]%
+        {{\small Small Jellyfish}}    
+        \label{fig:mean and std of net44}
+    \end{subfigure}
+    \caption[  Boxplots for query 5 ]
+    {\small Boxplots for query 5} 
+    \label{fig:mean and std of nets}
+\end{figure*}
 \clearpage
 
 \subsection{Query6}
@@ -1073,32 +1265,43 @@ SELECT v.name WHERE (u WITH position = 'access')
 \caption{Dataflow Query6}
 \end{figure}
 \clearpage
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfl/q6}
-    \captionof{figure}{Large Fattree}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfs/q6}
-    \captionof{figure}{Small Fattree}
-  \end{minipage}
-\end{figure}
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjl/q6}
-    \captionof{figure}{Large Jellyfish}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjs/q6}
-    \captionof{figure}{Small Jellyfish}
-  \end{minipage}
-\end{figure}
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.475\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{boxesfl/q6}
+        \caption[Network2]%
+        {{\small Large Fat Tree}}    
+        \label{fig:mean and std of net14}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.475\textwidth}  
+        \centering 
+        \includegraphics[width=\textwidth]{boxesfs/q6}
+        \caption[]%
+        {{\small Small Fat Tree}}    
+        \label{fig:mean and std of net24}
+    \end{subfigure}
+    \vskip\baselineskip
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjl/q6}
+        \caption[]%
+        {{\small Large Jellyfish}}    
+        \label{fig:mean and std of net34}
+    \end{subfigure}
+    \quad
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjs/q6}
+        \caption[]%
+        {{\small Small Jellyfish}}    
+        \label{fig:mean and std of net44}
+    \end{subfigure}
+    \caption[  Boxplots for query 6 ]
+    {\small Boxplots for query 6} 
+    \label{fig:mean and std of nets}
+\end{figure*}
 \clearpage
 \subsection{Query7}
 \begin{verbatim}
@@ -1115,32 +1318,43 @@ SELECT v.name WHERE (u WITH position = 'access')
 \caption{Dataflow Query7}
 \end{figure}
 \clearpage
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfl/q7}
-    \captionof{figure}{Large Fattree}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesfs/q7}
-    \captionof{figure}{Small Fattree}
-  \end{minipage}
-\end{figure}
-\begin{figure}[!tbp]
-  \centering
-  \RawFloats
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjl/q7}
-    \captionof{figure}{Large Jellyfish}
-  \end{minipage}
-  \hfill
-  \begin{minipage}[b]{0.5\textwidth}
-    \includegraphics[width=\textwidth]{boxesjs/q7}
-    \captionof{figure}{Small Jellyfish}
-  \end{minipage}
-\end{figure}
+\begin{figure*}
+    \centering
+    \begin{subfigure}[b]{0.475\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{boxesfl/q7}
+        \caption[Network2]%
+        {{\small Large Fat Tree}}    
+        \label{fig:mean and std of net14}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.475\textwidth}  
+        \centering 
+        \includegraphics[width=\textwidth]{boxesfs/q7}
+        \caption[]%
+        {{\small Small Fat Tree}}    
+        \label{fig:mean and std of net24}
+    \end{subfigure}
+    \vskip\baselineskip
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjl/q7}
+        \caption[]%
+        {{\small Large Jellyfish}}    
+        \label{fig:mean and std of net34}
+    \end{subfigure}
+    \quad
+    \begin{subfigure}[b]{0.475\textwidth}   
+        \centering 
+        \includegraphics[width=\textwidth]{boxesjs/q7}
+        \caption[]%
+        {{\small Small Jellyfish}}    
+        \label{fig:mean and std of net44}
+    \end{subfigure}
+    \caption[  Boxplots for query 7 ]
+    {\small Boxplots for query 7} 
+    \label{fig:mean and std of nets}
+\end{figure*}
 \clearpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
