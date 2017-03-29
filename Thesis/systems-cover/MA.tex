@@ -134,21 +134,25 @@ Finally, the result set can be modified in the \textbf{Solution Modifier Clause}
 \noindent The official PGQL Specifications can be accessed online at \cite{PGQLSpec}
 
 \subsection{Dataflow Programming}
-Dataflow oriented programming is a programming paradigm that models a program as a directed graph of data flowing between operations. 
+Traditionally, a program is a list of instructions to be executed by the computer. However, there are certain programming paradigms that do not conform to this idea. Dataflow oriented programming is one of them. In dataflow programming paradigm, a program is modeled as a directed graph of data flowing between operations.  Rather than explicitly defining the order of execution as most other programming paradigms do, dataflow programming specifies a network of nodes, between which the data is exchanged. In program execution, this means until a node's data buffer is non-empty, it remains idle. Only after the node receives an input, it begins to execute the operations that are defined in the program. Once the computation is completed, the resulting data is forwarded to the next node. Each node can be viewed as a black box, since the programmer does not have to worry what happens inside. His responsibilities lie only in the task of connecting the nodes in the correct manner.
 
 
 \subsection{Differential Dataflow}
 
 Developed by Frank McSherry at Microsoft, Differential dataflow is a data-parallel programming framework designed to efficiently process large volumes of data and to quickly respond to arbitrary changes in input collections.\cite{Differential}\\
-Differential Dataflow is an extension of Timely Dataflow, which was also created by Frank McSherry. \cite{GitTimely}
+Differential Dataflow is an extension of Timely Dataflow, which was first introduced by Murray. \cite{GitTimely}
 Rather than rewriting the entire data every time a change occurs, Differential Dataflow only keeps track of the changes made to the data. This allows for huge timesavings when executing the same operation multiple times on different data, since the results of previous computations can be reused.\\\\
+\begin{figure}[H]
+\includegraphics[width=1\textwidth]{dataflow_example}
+\caption{An example of a timely dataflow, Source:\protect\cite{Naiad}}
+\end{figure}
 Differential Dataflow is open-source and available for download at \cite{GitDiff}.
 
 
 \subsection{The Rust Programming Language}
-Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the year 2009, Mozilla offically began sponsering the project. It took another 6 years until the first stable version of the compiler was released. Nowadays most of the development is done by volunteers from the rust community.\\
-Rust has been praised as it combines guaranteed memory safety with minimal runtime. Other prominent features are ''zero-cost abstractions, move semantics, threads without data races, trait-based generics, pattern matching, type inference and efficient C bindings''\cite{RustLang}. The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, hosted by the Stack Overflow Community.\\\\
-However, it is still possible to produce out-of-bonds array accesses, since these checks have to be done at runtime.\\
+Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the year 2009, Mozilla offically began sponsering the project. It took another 6 years until the first stable version of the compiler was released. Nowadays most of the development is done by volunteers from the rust community.  The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, hosted by the Stack Overflow Community.\\
+Rust has been praised as it combines guaranteed memory safety with minimal runtime. Other prominent features are ''zero-cost abstractions, move semantics, threads without data races, trait-based generics, pattern matching, type inference and efficient C bindings''\cite{RustLang}.\\\\
+One of Rust's most prominent feature is memory safety. That means it should never be possible to dereference a null pointer or a pointer to an object that has already been deallocated. However, it is still possible to produce out-of-bonds array accesses, since these checks have to be done at runtime.\\
 In this thesis, we will often encounter recursive objects, such as trees for example. Since Rust does not have a null type, the children have to be wrapped in an object of type \textit{Box}, in order to avoid infinite recursion.\\
  \begin{minted}[
 frame=lines,
@@ -163,11 +167,11 @@ struct BinaryTree {
 	rightChild Box<BinaryTree>,
 }
 \end{minted} 
-\\Rust is completly opensource, and a big part of the code was written by members of the community. It is currently licensed unter the Apache and MIT license.
+\\Rust is completly opensource, and a big part of the code was written by members of the community. It is currently licensed unter the Apache\footnote{https://www.apache.org/licenses/LICENSE-2.0} and MIT license\footnote{https://opensource.org/licenses/MIT}
 
 
 \subsection{Nom}
-Our Query Parser is built using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process.\\\\
+Our Query Parser is built using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process. As of today, there exist dozends of parser written with nom, for example for gif, csv and tar files.\\\\
 The most commonly used macros were:
 \begin{itemize} 
 \item do\_parse!: Takes a list of parsers as inputs and applies them sequentially, finally returns a tupel.
@@ -526,6 +530,10 @@ named!(solution_modifier<(GroupBy, OrderBy, (i32, i32))>,
 
 \section{Query Evaluation}
 In this chapter we will discuss how we construct the dataflow from our queries.
+\begin{figure}[H]
+\includegraphics[width=1\textwidth]{pgr}
+\caption{An overview of query evaluation}
+\end{figure}
 \subsection{Graph Loader}
 The Loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differential Dataflow, an entirely new parser had to be written. This parser was also built using nom. In order fo it to properly recognize a graph, the graph has to be supplied in the Vertex-Edge-List format\cite{EdgeList}. This format gives us a text file (.txt), which contains two lists. First, all the vertices and their attributes are described. The vertices are ordered ascing according to their ID. The IDs have to start at 1 and must be continuous.\\\\
 \textbf{Small sample graph}
@@ -995,13 +1003,12 @@ The following pages contain the dataflows executing the query and the evaluation
 \begin{verbatim}
 SELECT u.name WHERE u.label() = 'switch', u.position = 'access'
 \end{verbatim}
-
 \textbf{Peak Memory: 377'840 kb}\\
 \textbf{Result size: 1'152} \\
 2 simple selections, 0 joins. One pass through the vertices collection is enough to produce the result.\\\\
 \textbf{Dataflow}
 \begin{figure}[H]
-\includegraphics[width=0.4\textwidth]{graph1}
+\includegraphics[width=0.2\textwidth]{graph1}
 \caption{Dataflow Query1}
 \end{figure}
 \clearpage
