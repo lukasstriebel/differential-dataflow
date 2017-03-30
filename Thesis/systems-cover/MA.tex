@@ -190,7 +190,7 @@ Nom is open-source and available for download at \cite{GitNom}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Parser}
-In the following, we describe how our parser is built. As mentioned in Section 2.1, the Parser has to recognize the following 4 clauses: Path definitions, select, where, solution modifier.
+In the following, we describe how our parser is built. As mentioned in Section 2.1, the Parser has to recognize the following 4 clauses: Path definitions (line 3), select (line 5), where (line 7), solution modifier (line 9). Finally, it returns a Query object (line 10)
 \\The main parse function therefore looks as follows:\\
 \begin{minted}[
 frame=lines,
@@ -217,7 +217,7 @@ named!(pgql_query<Query>,
 
 \subsection{Path Clause}
 
-The Path Clause is a list of definitions. Each Path definition starts with a name, followed by `:=' and then a path description. The path defined in this clause can then be reused in the Where Clause. One of many difficulties encountered while writing the parser, is the ability to differentiate between a single path definition and multiple ones, seperated by commas.
+The Path Clause is a list of definitions. Each Path definition starts with a name (line 16), followed by `:=' (line 18 )and then a path description (line 20). The definition is closed by the begining of a new line (line 6). The paths defined in this clause can then be reused in the Where Clause.
 
 \begin{minted}[
 frame=lines,
@@ -230,10 +230,10 @@ linenos]
 named!(path_clause<Vec<(String, Connection)> >,
     many0!(
         chain!( 
-            p: path ~
+            path: path ~
             opt!(space) ~
             tag!("\n"),
-            || p
+            || path
         )
     )
 );
@@ -253,7 +253,7 @@ named!(path<(String, Connection)>,
 
 \end{minted}
 \subsection{Select Clause}
-The Select Clause of PGQL is very similar to the SQL one. Started by the keyword `Select', a list of attributes is provided. Attributes may be renamed with the keyword `as'. Aggregate functions like `Sum', `Avg' etc. may also be accessed.\\
+The Select Clause of PGQL is very similar to the SQL one. Started by the keyword `Select' (line 3), a list of attributes is provided (line 5). If the user wishes to retrieve everything, he is to use the asterix sign (line 18). Aggregate functions like `Sum', `Avg' etc. may also be accessed (line 12). Attributes may be renamed with the keyword `as', but this function is currently not supported.\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -266,7 +266,7 @@ named!(select_clause<Vec<SelectElem> >,
     chain!( 
         tag_no_case_s!("select") ~
         space ~
-        select_elems: many1!(select_elems),
+        select_elems: many1!(select_elem),
         || select_elems
     )
 );
@@ -289,11 +289,11 @@ The Where Clause consists of a list of Constraints. Each constraint defines eith
  
  \subsubsection{Path Constraints}
  Path Constraints are patterns, which are matched against the graph. If a set vertices does not fit the pattern, it is discarded.\\
- A typical Path Constraint requires a vertex to have certain edges to other vertices. For example, the constraint: (v) -> (u) requires that the vertex v has a direct edge to the vertex u.\\\\Vertices are absoultly essential for the path constraints. A Vertex is delimited by brackets () and its properties are specified inside the brackets (or at a later point in time). There are three parameteres, all of them are completly optional:\\
+ A typical Path Constraint requires a vertex to have certain edges to other vertices. For example, the constraint: (v) -> (u) requires that the vertex v has a direct edge to the vertex u.\\\\Vertices are absoultly essential for the path constraints. A Vertex is delimited by brackets () (line 3 \& 29) and its properties are specified inside the brackets (or at a later point in time as a seperate constraint). There are three possible properties, all of them are completly optional:\\
  \begin{itemize}
- \item The name of the vertex. If no name is provided, the vertex is anonymous.
- \item A set label constraints, recognized by the : sign. Label constraints differ from value constraints
- \item A set of inlined value constraints, recognized by the keyword WITH. This is basically just syntatic sugar, for example, the two formulation (v WITH age \textgreater 10) and (v), v.age \textgreater 10 are completly equal.
+ \item The name of the vertex. If no name is provided, the vertex is anonymous (line 5).
+ \item A set label constraints, recognized by the : sign (line 7). Label constraints differ from value constraints since the labels are defined in a very particular way, unlike the attributes. See section 4.1 for more details. 
+ \item A set of inlined value constraints, recognized by the keyword WITH (line 9). This is basically just syntatic sugar, for example, the two formulation (v WITH age \textgreater 10) and (v), v.age \textgreater 10 are completly equal.
  \end{itemize}
  
 \textbf{Code sample}\\\\
@@ -338,11 +338,11 @@ named!(query_vertex<Vertex>,
 );
  \end{minted} 
  
- The connection between two vertices can be a very simple or a very sophisticated edge with many attributes. An edge is defined by an arrow sign -\textgreater and its properties are specified inside the brackets (or at a later point in time). There are three parameteres, all of them are completly optional:\\
+ The connection between two vertices can be a very simple or a very sophisticated edge with many attributes. An edge is defined by an arrow sign -\textgreater and its properties are specified inside the brackets. If there are no properties to be defined, the brackets are omitted (line 3 \& 5). There are three parameteres, all of them are completly optional:\\
  \begin{itemize}
- \item The name of the vertex. If no name is provided, the vertex is anonymous.
- \item A set label constraints, recognized by the : sign. Label constraints differ from value constraints
- \item A set of inlined value constraints, recognized by the keyword WITH. This is basically just syntatic sugar, for example, the two formulation (v WITH age \textgreater 10) and (v), v.age \textgreater 10 are completly equal.
+ \item The name of the edge. If no name is provided, the edge is anonymous (line 10).
+ \item One label constraint, recognized by the : sign (line 12). 
+ \item A set of inlined value constraints, recognized by the keyword WITH (line 14). 
  \end{itemize}
  
 \textbf{Code sample}\\\\
@@ -429,9 +429,9 @@ fn fold_connection(initial: Vertex, remainder: Vec<(Edge, Vertex)>) -> Vec<Conne
  \subsubsection{Value Constraints}
  Value Constraints are constraints on attributes of the Vertex, e.g. name = `Alice' or age \textless  40. Every Value Constraint has to include one or multiple vertex attributes, and one or more Literals. Literals are raw values, and come in 3 types:
  \begin{itemize} 
-\item Strings e.g. `Alice'
-\item Floats e.g. 40
-\item Booleans, which are either true or false
+\item Strings e.g. `Alice' (line 2)
+\item Floats e.g. 40 (line 3)
+\item Booleans, which are either true or false (line 4)
 \end{itemize}
  
  \begin{minted}[
@@ -1390,7 +1390,20 @@ SQLGraph is a Graph Store that combines existing relational optimizers with a no
 
 \subsection{GraphiQL}
 GRAPHiQL is an intuitive query language for graph analytics, which allows developers to reason in terms of nodes and edges rather than the tables and joins which are used in relational databases. GRAPHiQL provides key graph constructs such as looping, recursion, and neighborhood operations. At runtime, GRAPHiQL compiles graph programs into efficient SQL queries that can run on any relational database. \cite {Graphiql}
+\subsection{Overview}
+\begin{table}[]
+\centering
+\caption{My caption}
+\label{my-label}
+\begin{tabular}{llllllll}
+                 & PGQL & Gremlin & GraphiQL & SPARQL & PQL & Green-Marl & SQLGraph \\
+Language         &      &         &          &          &          &          &      \\
+Operating System &      &         &          &          &          &          &    \\
+Open Source      &      &         &          &          &          &          &
+\end{tabular}
+\end{table}
 \clearpage
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
