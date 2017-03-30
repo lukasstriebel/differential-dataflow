@@ -61,7 +61,7 @@
 \hspace{60mm}
 \begin{center}
  \textbf{Abstract} \end{center}
-In today's business world, Social Networks have become one of the most important if not the most important platforms to advertise and attract new customers. Thus, graph databases have been increasing in popularity in comparison to traditional relational databases. This tendency has given birth to the need of powerful graph datawarehouses and query evaluators. In this thesis, we present Qlidaf, an Interface of the Property Graph Query Language for Diffrerential Dataflow.
+In today's business world, Social Networks have become one of the most important if not the most important platforms to advertise and attract new customers. In order to deliver your message to the right people, complicated analysis on the behaviour and structure of these networks has to be done. Thus, graph databases have been increasing in popularity in comparison to traditional relational databases. This tendency has given birth to the need of powerful graph datawarehouses and query evaluators. It is of tremendous importance to capture and extract the key information that lie within these graphs. In this thesis, we present Qlidaf, an Interface of the Property Graph Query Language for Differential Dataflow, capable of fulfilling these tasks.
 
 \clearpage
 \tableofcontents
@@ -72,13 +72,14 @@ In today's business world, Social Networks have become one of the most important
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Introduction}
-In this chapter, we explain which problems we aim to solve with this thesis. Furthermore we outline the structure of the thesis.
+In this chapter, we describe the motivation behind the thesis and which problems we aim to solve. Furthermore we outline the structure of the thesis.
 \subsection{Motivation}
-In our modern digital age, the Internet is the largest centre of data and knownledge. The websites of large companies are accessed thousands of times a day. Furthermore, the request do not only grow in size, but also become more complex and face higher demands from management. In order to cope with this huge amount of client requests, large sever farms were built. In these farms, hundreds of servers and switches are connected and request have to travel across multiple machines until they are answered. Thus, the need for a system that directs and balances the huge amount of request arises. Additionally, this system should be able to retrieve information from the network and execute algorithms such as Dijkstra's shortest path. The result of these operations are needed to make the right decision about controlling the distribution and processing of the user requests.\\\\
-The first step to deal with this challenge is to model this complicated network of computers as a property graph. A property graph is a graph which allows its vertices and edges to posses an unlimited number of attributes. Traditionally, very few attributes are allowed in a graph, e.g. a weight attribute on the edges. However, our porperty graph allows attribute of type string, float and boolean.\\ In a second step, an algorithm determines how the request should best be directed in order to not overload any part of the network. This thesis focuses on the second step and proposes a program that can evaluate queries on a property graph, in order to determine weak links and find the optimal distribution of the work load.
+In our modern digital age, the Internet is the largest centre of data and knownledge. The websites of large companies are accessed thousands of times a day. Furthermore, the request do not only grow in size, but also become more complex and face higher demands from management. In order to cope with this huge amount of client requests, large sever farms were built. In these farms, hundreds of servers and switches are connected and request have to travel across multiple machines until they are answered. Thus, the need for a system that directs and balances the huge amount of request arises. Additionally, this system should be able to retrieve information from the network and execute algorithms such as Dijkstra's shortest path. The result of these operations are needed to make the right decision when facing with difficult choices in controlling the distribution and processing of the user requests.\\\\
+The first step to deal with this challenge is to model this complicated network of computers as a property graph. A property graph is a graph which allows its vertices and edges to posses an unlimited number of attributes. Traditionally, very few attributes are allowed in a graph, e.g. a weight attribute on the edges. However, our porperty graph allows attribute of type string, float and boolean.\\ In a second step, an algorithm determines how the request should best be directed in order to not overload any part of the network. This thesis focuses on the second step and proposes a program that can evaluate queries on a property graph, in order to determine weak links and find the optimal distribution of the work load.\\\\
+This thesis combines the new query language PGQL, which is design to aims to unitize graph queries, with a powerful graph analytics framework called Differential Dataflow. This framework provides us with the necessary tools to construct a query plan, execute said plan on a property graph and obtain the desired answer to the user's request.
 \subsection{Structure of the Thesis}
 The Thesis has the following structure:\\
-First, we give an overview of the technologies used in the Thesis in Section 2.\\
+First, we give an overview of the technologies used in the Thesis in Section 2.
 We continue by giving a detailed explanation of the query parser  in Chapter 3. In Section 4, we explain how the program sets up the dataflows according to the query. Next, we describe the experiments that were run in order to determine the performance of the program in Chapter 5. An overview of other graph query languages and query plan generator can be found in section 6. Finally, we draw our conclusion, provide an outlook and show potential for future work.
 \clearpage
 
@@ -146,7 +147,7 @@ Differential Dataflow is an extension of Timely Dataflow, which was first introd
 Rather than rewriting the entire data every time a change occurs, Differential Dataflow only keeps track of the changes made to the data. This allows for huge timesavings when executing the same operation multiple times on different data, since the results of previous computations can be reused.\\\\
 \begin{figure}[H]
 \includegraphics[width=1\textwidth]{dataflow_example}
-\caption{An example of a timely dataflow, Source:\protect\cite{Naiad}}
+\caption[Timely Dataflow Example]{An example of a timely dataflow, Source:\protect\cite{Naiad}}
 \end{figure}
 Differential Dataflow is open-source and available for download at \cite{GitDiff}.
 
@@ -155,8 +156,8 @@ Differential Dataflow is open-source and available for download at \cite{GitDiff
 Rust is a fairly new programming language. It's origin lies with the Mozilla Company, where former employee Graydon Hoare started development in 2006. In the year 2009, Mozilla offically began sponsering the project. It took another 6 years until the first stable version of the compiler was released. Nowadays most of the development is done by volunteers from the rust community.  The Rust compiler is self-hosted, meaning it is written in Rust as well. Rust won the Award for Most Loved Programming Language in 2016, hosted by the Stack Overflow Community.\\
 Rust has been praised as it combines guaranteed memory safety with minimal runtime. Other prominent features are ''zero-cost abstractions, move semantics, threads without data races, trait-based generics, pattern matching, type inference and efficient C bindings''\cite{RustLang}.\\\\
 One of Rust's most prominent feature is memory safety. That means it should never be possible to dereference a null pointer or a pointer to an object that has already been deallocated. However, it is still possible to produce out-of-bonds array accesses, since these checks have to be done at runtime.\\
-In this thesis, we will often encounter recursive objects, such as trees for example. Since Rust does not have a null type, the children have to be wrapped in an object of type \textit{Box}, in order to avoid infinite recursion.\\
- \begin{minted}[
+In this thesis, we will often encounter recursive objects, such as trees for example. Since Rust does not have a null type, the children have to be wrapped in an object of type \textit{Box}, in order to avoid infinite recursion.\\\\
+\begin{minted}[
 frame=lines,
 framesep=2mm,
 baselinestretch=1.2,
@@ -169,7 +170,7 @@ struct BinaryTree {
 	rightChild Box<BinaryTree>,
 }
 \end{minted} 
-\\Rust is completly opensource, and a big part of the code was written by members of the community. It is currently licensed unter the Apache\footnote{https://www.apache.org/licenses/LICENSE-2.0} and MIT license\footnote{https://opensource.org/licenses/MIT}
+\\\\Rust is completly opensource, and a big part of the code was written by members of the community. It is currently licensed under the Apache\footnote{\url{https://www.apache.org/licenses/LICENSE-2.0}} and MIT license\footnote{\url{https://opensource.org/licenses/MIT}}
 
 
 \subsection{Nom}
@@ -393,7 +394,34 @@ named!(query_edge<Edge>,
                 tag!("]->")
  );
  \end{minted}
-\\The PGQ Language allows to nest an unlimited amount of (vertex,edge,vertex)-tuples in one single constraint. I.e. after parsing an initial vertex, infinitely many vertices proceeded by an edge may follow. To process this chain of tuples, a fold function (line 13) has to be used. While iterating through this vector, we clone the previous vertex, then create an new connection and push it into another vector(line 21). This vector is then returned at the end of the function (line 24).\\\\
+\\\\The inlined and the label constraint are parsed as following:\\\\
+ \begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(label_constraint<Expr>,
+    chain!(
+        char!(':') ~
+        opt!(space) ~
+        label: char_only, // Label
+        || Expr::Label(String::from(label))
+    )
+);
+
+named!(inlined_constraints<Vec<Expr> >,
+    chain!(
+        tag_no_case_s!("with") ~
+        space ~
+        exprs: expressions,
+        || exprs
+    )
+);
+ \end{minted}
+\\\\The PGQ Language allows to nest an unlimited amount of (vertex,edge,vertex)-tuples in one single constraint. I.e. after parsing an initial vertex, infinitely many vertices proceeded by an edge may follow. To process this chain of tuples, a fold function (line 13) has to be used. While iterating through this vector, we clone the previous vertex, then create an new connection and push it into another vector(line 21). This vector is then returned at the end of the function (line 24).\\\\
  \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -524,8 +552,33 @@ named!(solution_modifier<(GroupBy, OrderBy, (i32, i32))>,
         || (group, order, limit)
     )
 );
- \end{minted} 
-\\\\ The order by clause parses a number of variable field, which are returned as a vector. Every attribute can be either ascending or descending.\\\\
+ \end{minted}
+\\\\ The group by clause parses a number of attributes (line 7), which are returned as a vector. Every attribute can be either ascending or descending(line 22 \& 23).\\\\
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(group_by<GroupBy>,
+    chain!(
+        tag_no_case_s!("group by") ~
+        space ~
+        variable_names: many1!(
+            chain!(
+                variable_name: attribute ~ 
+                opt!(space) ~
+                opt!(char!(',')),
+                || variable_name
+            )
+        ),
+        || GroupBy{ group: variable_names}
+    )
+);
+\end{minted}
+\\\\ The order by clause parses a number of variable fields, which are returned as a vector. Every attribute can be either ascending or descending.\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -536,9 +589,7 @@ linenos]
 {rust}
 named!(order_by<OrderBy >,
     chain!(
-        tag_no_case_s!("order") ~
-        space ~
-        tag_no_case_s!("by") ~
+        tag_no_case_s!("order by") ~
         space ~
         order_terms: many1!(
             chain!(
@@ -554,14 +605,36 @@ named!(order_by<OrderBy >,
 
 named!(order_term<OrderTerm>,
         chain!(
-            expr: expression ~
+            variable_name: attribute ~
             space ~
             asc: alt!(
                     tag_no_case_s!("asc") => { |_| true } |
                     tag_no_case_s!("desc") => { |_| false } |
                     tag!("") => { |_| true }
                 ),
-            || {OrderTerm {expr: expr, asc: asc}}       
+            || {OrderTerm {variable_name: variable_name, asc: asc}}
+        )
+);
+\end{minted}
+\\\\ The limit and offset clause parses two integers (line 5 \& 9), which are returned as a pair (line 10).\\\\
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(limit_offset<(i32, i32)>,
+    chain!(
+        tag_no_case_s!("limit") ~
+        space ~
+        limit: unsigned_int ~
+        space ~
+        tag_no_case_s!("offset") ~
+        space ~
+        offset: unsigned_int,
+        || (limit, offset)
     )
 );
 \end{minted}
@@ -573,7 +646,7 @@ named!(order_term<OrderTerm>,
 In this chapter we will discuss how we construct the dataflow from our queries.
 \begin{figure}[H]
 \includegraphics[width=1\textwidth]{pgr}
-\caption{An overview of query evaluation}
+\caption[Query Evaluation Overview]{An overview of query evaluation}
 \end{figure}
 \subsection{Graph Loader}
 The loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differential Dataflow, an entirely new parser had to be written. This parser was also built using nom. In order fo it to properly recognize a graph, the graph has to be supplied in the Vertex-Edge-List format\cite{EdgeList}. This format gives us a text file (.txt), which contains two lists. First, all the vertices and their attributes are described. The vertices are ordered ascing according to their ID. The IDs have to start at 1 and must be continuous.\\\\
@@ -638,7 +711,7 @@ named!(node<Node>,
 
 );
 \end{minted}
-
+\\\\The label constraints are just a vector of strings (line 7), delimited by curly brackets (line 3 \& 11).\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -662,7 +735,7 @@ named!(labels<Vec <String> >,
     )
 );
 \end{minted}
-
+\\\\Each attribute begins with a name (line 4), followed by a : (line 6) and terminated by the actual value (line 8). \\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -722,8 +795,8 @@ The biggest challenge in the thesis was translating the PGQL query into a datafl
 \subsection{Constraint sorting}
 First, we iterate through the vector and sort the constraints by type:\\
 \begin{itemize}
-\item If the constraint is a path pattern, it is put into a seperate vector.
-\item If the constraint is an expression, we determine the name of the involved vertex or edge by recursively exploring the expression. Once the variable name is known, the expression is then pushed into a Hashmap of Vectors. For each variable there exists a seperate vector with expressions. This grouping helps tremendously when filtering the vertex set later on.
+\item If the constraint is a path pattern, it is put into a seperate vector (line 5).
+\item If the constraint is an expression, we determine the name of the involved vertex or edge by recursively exploring the expression (line 7). Once the variable name is known, the expression is then pushed into a Hashmap of Vectors (line 10 \& 14). For each variable there exists a seperate vector with expressions. This grouping helps tremendously when filtering the vertex set later on.
 \end{itemize}
 \textbf{Code sample}\\\\
 \begin{minted}[
@@ -734,6 +807,8 @@ fontsize=\footnotesize,
 bgcolor=bg,
 linenos]
 {rust}
+let mut connections = Vec::new();
+let mut selections : HashMap<String, Vec<Expr> > = HashMap::new();
 for constraint in &vvhere{
                 match constraint {
                     &Constraint::PathPattern(ref pattern) => connections.push(pattern),
@@ -805,6 +880,15 @@ for connection in connections {
                         }
                     );
                 }
+\end{minted}
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
                 else if !used_fields.contains(&connection.target.name) {
                     used_fields.insert(&connection.target.name);
                     names.insert(&connection.target.name, ids);
@@ -847,8 +931,8 @@ for connection in connections {
             }
 \end{minted}
 \subsection{Selection on the vertex set}
-The next step is to apply all the selections we have sorted beforehand on the vertex set. For each non-anonymous vertex, we filter the entire set and save the result in a Hashmap. The key in this Hashmap is the name of the vertex.
-\textbf{Code sample}
+The next step is to apply all the selections we have sorted beforehand on the vertex set. For each non-anonymous vertex, we filter the entire set (line 3) and save the result in a Hashmap (line 6). The key in this Hashmap is the name of the vertex.\\
+\textbf{Code sample}\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -857,17 +941,17 @@ fontsize=\footnotesize,
 bgcolor=bg,
 linenos]
 {rust}
-let mut plans = HashMap::new();
+let mut result = HashMap::new();
 for (name, filter) in selections {
     let result = vertices.filter(move |x| {
         check_node(&x, &filter)
     });
-    plans.insert(name, result);
+    results.insert(name, result);
 }
 \end{minted}
 \subsection{Executing the plan}
-After constructing a plan, we iterate over through all the steps we assemble in the chapter 4.4. In the beginng, our result, which is a Collection of Vectors of Vertices, is empty. We begin by pulling the source's vertex collection from the Hasmap we defined in section 4.5. The Hashmap's key is the name of the vertex. Once we have the correct vertex collections, we join it with the edge set, and map the result, in order to keep track of the vertex ID of the target. We then repeat this step for the target vertex. We end up with a vector of vertices, which we store as the result.\\\\
-If there are more elements in the execution plan, we repeat the previous steps until we are done. The only difference is that we reuse our previous result, instead of pulling a new collection from our vertex Hashmap.
+After constructing a plan, we iterate over through all the steps we assemble in the chapter 4.4 (line 2). In the beginng, our result, which is a Collection of Vectors of Vertices, is empty (line 1). We begin by pulling the source's vertex collection from the Hasmap we defined in section 4.5 (line 4 \& 8). The Hashmap's key is the name of the vertex. Once we have the correct vertex collections, we join it with the edge set (line 13), and map the result (line 15), in order to keep track of the vertex ID of the target. We then repeat this step for the target vertex. We end up with a vector of vertices, which we store as the result.\\\\
+If there are more elements in the execution plan, we repeat the previous steps until we are done. The only difference is that we reuse our previous result, instead of pulling a new collection from our vertex Hashmap.\\
 \textbf{Code sample}\\\\
 \begin{minted}[
 frame=lines,
@@ -919,8 +1003,8 @@ for step in execution_plan {
 }
  \end{minted} 
 \subsection{Applying the projection and aggregation}
-The final step is to apply the projections and the aggregation that were passed in a vector. In order to do get the desired result, we iterate over this vector and take the appropriate action depending what attribute is asked for by the user. In case of an aggregation, we first group the records, and then count, sum  etc. the values.
-\textbf{Code sample}
+The final step is to apply the projections and the aggregation that were passed in a vector. In order to do get the desired result, we iterate over this vector (line 1) and take the appropriate action depending what attribute is asked for by the user. In case of an aggregation (line 11), we first group the records (line 14), and then count, sum  etc. the values (line 15 -- 19).\\
+\textbf{Code sample}\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -956,7 +1040,7 @@ for projection in &select{
 }
  \end{minted}
 \subsection{Evaluating an expression}
-It is of great importance to evaluate the expressions formulated in the query in the dataflow. Since expression can be nested an umlimited number of times, the only way to evaluate them is by using a recursive function. This function first evaluates the right hand side, then the left hand side and finally applies the desired operator. Exceptions are the Not Operater, which has only one side and expressions which can be evaluated immediately. Under this category falls the Literal, the Attribute of a vertex, the built-in functions and the label operator, which simply checks whether the requested label is present in the vertex' label vecotr.\\\\
+It is of great importance to evaluate the expressions formulated in the query in the dataflow. Since expression can be nested an umlimited number of times, the only way to evaluate them is by using a recursive function. This function first evaluates the right hand side, then the left hand side and finally applies the desired operator (line 3). Exceptions are the Not Operater (line 12), which has only one side and expressions which can be evaluated immediately. Under this category falls the Literal (line 19), the Attribute of a vertex (line 20), the built-in functions (line 27) and the label operator (line 13), which simply checks whether the requested label is present in the vertex' label vector.\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -1014,7 +1098,7 @@ bgcolor=bg]
 {bash}
 $ cargo run --release --example pgql graph.txt query.txt true -- -w 32
 \end{minted}
-\\The --release argument allows for compiler optimizations and should speed up the execution of the program. The --example pgql argument specifies which program to run. The remaining 4 arguments are parsed by our program. First, we denote the name of the graph we want to parse. This argument has to be a text file with the graph in edge-list format (see section 4.1). The second argument gives a text file which contains all the queries that the user wishes to evaluate. Next a boolean specifies whether the edges in the graph are directed or not. In case they are not, all the edges in the graph text file will be cloned, inverted and added to the edge set. This means an edge from A to B posses the exact same properties as an edge from B to A. If this is not desired, then this argument should be set to false. Finally, we provide a number of arguments needed by the timely framework\footnote{http://www.frankmcsherry.org/timely-dataflow/timely/execute/fn.execute\_from\_args.html}. First, we define how many worker threads should be used to evaluate the query with the -w argument. This number is expected to be less or equal to the number of cores of the machine. Alternatively, one can add a -n argument to specify the number of processes an a -p argument to denote the ID of this process. If the program is to be distrbute over multiple machines, the -h argument should specify a text file in which all the hostnames and ports are defined.\\\\
+\\The --release argument allows for compiler optimizations and should speed up the execution of the program. The --example pgql argument specifies which program to run. The remaining 4 arguments are parsed by our program. First, we denote the name of the graph we want to parse. This argument has to be a text file with the graph in edge-list format (see section 4.1). The second argument gives a text file which contains all the queries that the user wishes to evaluate. Next a boolean specifies whether the edges in the graph are directed or not. In case they are not, all the edges in the graph text file will be cloned, inverted and added to the edge set. This means an edge from A to B posses the exact same properties as an edge from B to A. If this is not desired, then this argument should be set to false. Finally, we provide a number of arguments needed by the timely framework\footnote{\url{http://www.frankmcsherry.org/timely-dataflow/timely/execute/fn.execute\_from\_args.html}}. First, we define how many worker threads should be used to evaluate the query with the -w argument. This number is expected to be less or equal to the number of cores of the machine. Alternatively, one can add a -n argument to specify the number of processes an a -p argument to denote the ID of this process. If the program is to be distrbute over multiple machines, the -h argument should specify a text file in which all the hostnames and ports are defined.\\\\
 \textbf{Benchmark Example}
 We used a special python script with the goal to automate the benchmarking of our program.\\\\
  \begin{minted}[
@@ -1035,9 +1119,17 @@ $ python run_benchmark.py graph.txt query.txt
 \subsection{Hardware}
 All the experiments were conducted on an ETH server (exact model?). This machine possesses 4 x 12 AMD Opteron 6174 processors, each one running at 2.2 GHz. The operating System was Debian 7.0 and the installed memory was 128 GB of RAM.
 \subsection{Topologies}
-We select two distinctly different
-topologies: fattree~\cite{FatTree} and jellyfish~\cite{Jellyfish}. fattree is a modification of the leaf-spine structure, commonly found in datacenters, and it is thus a practically deployable solution. jellyfish is inspired by work on random graphs showcasing that random structures can deliver shorter average paths but is more of an ideal-case reference rather than a realistic topology.
-In the experiment, four different topologies were used:\\\\
+We select two distinctly different topologies: fattree~\cite{FatTree} and jellyfish~\cite{Jellyfish}. Fattree is a modification of the leaf-spine structure, commonly found in datacenters, and it is thus a practically deployable solution.
+\begin{figure}[H]
+\includegraphics[width=1\textwidth]{fattree}
+\caption[Fat-Tree Topology Example]{Example 4-ary Fat-Tree Topology: 16 hosts and 20 4-port switches. Source: \protect\cite{FatTree}}
+\end{figure}
+Jellyfish is inspired by work on random graphs showcasing that random structures can deliver shorter average paths but is more of an ideal-case reference rather than a realistic topology.
+\begin{figure}[H]
+\includegraphics[width=0.5\textwidth]{jelly}
+\caption[Jellyfish Topology Example]{Jellyfish topology with 16 hosts and 20 4-port switches. Source: \protect\cite{Jellyfish}}
+\end{figure}
+In the experiment, four different sized topologies were used:\\\\
 \textbf{Large Fattree} \quad  The large fattree topology is the largest one of the four topologies. It contains 55'000 vertices, of which 2'880 are switches. Furthermore the graph posses a total of 50'000 bidirectional edges. Since one bidirectional edge is represented by two directed edges, there are a total of 100'000 edges in the collection.\\\\
 \textbf{Small Fattree} \quad The small fattree topology has the same vertices to edge ratio as the large fattree, but it is overall much smaller. It contains 17'665 vertices, of which 1'280 are switches. Furthermore the graph possesses a total of 16' 400 bidirectional edges. (needs better formulation) \\\\
 \textbf{Large Jellyfish} \quad  The large jellyfish topology matches the large fattree in terms of vertices, but contains far less edges. It contains 56'160 vertices, of which 864 are switches. Furthermore the graph possesses a total of 6'910 bidirectional edges. (needs better formulation)\\\\
@@ -1050,7 +1142,7 @@ In total, we ran seven different queries, with each subsequent query being more 
 \subsection{Overview}
 \begin{figure}[H]
 \includegraphics[width=1\textwidth]{ov}
-\caption{An overview of the seven queries, run with 32 workers}
+\caption[Query Results Overview]{An overview of the seven queries, run with 32 workers}
 \end{figure}
 Throughout all seven queries, the following pattern is noticeable:\\
 The influence of the number of workers behaves unexpectedly, especially for queries 1,4 and 6. In a perfect world, the query latency would be inversely proportional to the number of workers. However, we only observe this behaviour for query 5, and only for the fattree topologies.\\More often than not, an increase of worker threads leads to a higher latency, especially when the latency is already quite low, around the 50 to 200 millisecond range. We reason that this happens because at that level, the communication overhead dominates the time savings achieved by parallelism. This claim is additionally supported by the fact, that query 5 has one of the longest latencies, ranging up to 10 seconds. When evaluating queries with lower latency, the contention between the workers increases and we frequently observe that the best performance is achieved when running the query with just a single worker.\\\\
@@ -1433,7 +1525,8 @@ SELECT v.name WHERE (u WITH position = 'access')
 In this chapter we give an overview of other existing graph databases and query evluators.
 
 \subsection{SPARQL}
-RDF is a directed, labeled graph data format for representing information in the Web. This specification defines the syntax and semantics of the SPARQL query language for RDF. SPARQL can be used to express queries across diverse data sources, whether the data is stored natively as RDF or viewed as RDF via middleware. SPARQL contains capabilities for querying required and optional graph patterns along with their conjunctions and disjunctions. SPARQL also supports extensible value testing and constraining queries by source RDF graph. The results of SPARQL queries can be results sets or RDF graphs.\cite{SPARQL}
+RDF\footnote{\url{https://www.w3.org/RDF/}} is a directed, labeled graph data format for representing information in the Web. This specification defines the syntax and semantics of the SPARQL query language for RDF. SPARQL can be used to express queries across diverse data sources, whether the data is stored natively as RDF or viewed as RDF via middleware. SPARQL contains capabilities for querying required and optional graph patterns along with their conjunctions and disjunctions. SPARQL also supports extensible value testing and constraining queries by source RDF graph. The results of SPARQL queries can be results sets or RDF graphs.\\\\
+The major difference between SPARQL and PGQL is the format of the graph. SPARQL only supports graphs in RDF format, whereas PGQL requires the graph to be in either the edge-list or adjacency-list format.\cite{SPARQL}
 \subsection{PQL}
 A program query language, PQL for short, is a source language-independent notation to specify program queries and program views. PQL is used as an interface to Static Program Analyzers (SPA), interactive tools that enhance program understanding by answering queries about programs. Queris on global program design as well as searches for detail code patterns are both possible in PQL. Program queries and patterns supported by other notations described in literature and those supported by commercial tools can be written simply and naturally in PQL.\cite {PQL}
 
@@ -1453,17 +1546,21 @@ SQLGraph is a Graph Store that combines existing relational optimizers with a no
 
 \subsection{GraphiQL}
 GRAPHiQL is an intuitive query language for graph analytics, which allows developers to reason in terms of nodes and edges rather than the tables and joins which are used in relational databases. GRAPHiQL provides key graph constructs such as looping, recursion, and neighborhood operations. At runtime, GRAPHiQL compiles graph programs into efficient SQL queries that can run on any relational database. \cite {Graphiql}
+\clearpage
 \subsection{Overview}
-\begin{table}[]
+\begin{table}[h]
 \centering
-\caption{My caption}
+\caption{Overview of Framworks}
 \label{my-label}
-\begin{tabular}{llllllll}
-                 & PGQL & Gremlin & GraphiQL & SPARQL & PQL & Green-Marl & SQLGraph \\
-Language         &      &         &          &          &          &          &      \\
-Operating System &      &         &          &          &          &          &    \\
-Open Source      &      &         &          &          &          &          &
-\end{tabular}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{lllllll}
+                          & \multicolumn{6}{c}{\textbf{Framework}}                                                                                                                                                                                                                                                                                                         \\[0.25cm] \cline{2-7} 
+                         \\[0.1cm] & PGQL                                                     & Gremlin                                                         & GraphiQL                                                        & SPARQL                                                           & Green-Marl & PQL                                                             \\[0.25cm] \hline
+\\[0.1cm]\textbf{Language}         & Java                                                     & Java                                                            & Javascript                                                      & Java                                                             & C++        & Java                                                            \\[0.25cm]
+\textbf{Operating System} & \begin{tabular}[c]{@{}l@{}}Linux,\\ Mac\end{tabular}     & \begin{tabular}[c]{@{}l@{}}Windows,\\ Linux,\\ Mac\end{tabular} & \begin{tabular}[c]{@{}l@{}}Windows,\\ Linux,\\ Mac\end{tabular} & \begin{tabular}[c]{@{}l@{}}Windows,\\ Linux,\\ Mac\end{tabular}  & Linux      & \begin{tabular}[c]{@{}l@{}}Windows,\\ Linux,\\ Mac\end{tabular} \\[0.25cm]
+\textbf{Open Source}      & Parser only                                              & yes                                                             & yes                                                             & \begin{tabular}[c]{@{}l@{}}some imple-\\ mentations\end{tabular} & yes        & yes                                                             \\[0.25cm]
+\textbf{Graph Format}     & \begin{tabular}[c]{@{}l@{}}Property\\ Graph\end{tabular} &                                                                 &                                                                 & RDF                                                              &            &                                                                
+\end{tabular}}
 \end{table}
 \clearpage
 
@@ -1473,11 +1570,12 @@ Open Source      &      &         &          &          &          &          &
 \section{Summary}
 
 \subsection{Conclusion}
-In this thesis we presented qlidaf, a program to evaluate PGQL queries in a dataflow environment. We showed how our program parsers queries and graphs, and then evaluates said query on the graph.
+In this thesis we presented qlidaf, a program to evaluate PGQL queries in a dataflow environment. We showed how our program parsers queries and graphs, and then evaluates said query on the graph.\\\\
+Furthermore we provided an thorough evaluation of the performance of our program to showcase its competitveness.
 \subsection{Future Work}
-\textbf{Shortest Path} \quad Extend the evaluator to find the shortest path.\\\\
-\textbf{Additional Joins} \quad Enable joins in the value constraint, e.g. v.age = u.age.\\\\
-\textbf{Query Optimizer} \quad Implement a query optimizer.\\\\
+\textbf{Shortest Path} \quad Unfortunately, there is currently no support for evaluating path expressions. This is a rather pressing issue, since paths are of great interests in network routing. In a first step the evaluator should be extended with the functionality to find the shortest path. Subsequently, special properties of the paths can be taken into consideration. These include forbidding the visitation of certain vertices or requiring that a certain type of vertex, e.g. a firewall, has to be included in the path atleast one or more times.\\\\
+\textbf{Additional Joins} \quad Currently, Joins are only happening when putting an edge between two vertices. Unfortunately, certain problems stem from this. For example, the query: \begin{verbatim}SELECT * WHERE v.age = u.age\end{verbatim} cannot be evaluate at this time. This query requires us to join the vertex set with itself on the age attribute, which does not pose a problem. The underlying difficulty is to recognize that there is an actual need to join the sets. Therefore in order to fix this issue, we would have to extend the handling of the value constraints, so we can recognize these special requirements. \\\\
+\textbf{Query Optimizer} \quad In the current version of the program, all queries are evaluate in the same fashion. We start with the selections of the vertex set, join them with the edge set, and finally apply the projections. Pushing the selections down is usually a good practice, however, under certain conditions this approach is suboptimal. Therefore the implemention of a query optimizer is a must once we get to larger graphs and more complicated queries.\\\\
 \textbf{Changes in the Graph} \quad Throughout all the experiments, our graphs never changed at all. Since this program was built on differential dataflow, which excels at dealing with dynamic graphs, it would make a lot of sense to have periodic input, that adds or removes parts of the graph.
 \subsection{Acknowledgements}
 I would like to thank my supervisors John Liagouris, Desislava Dimitrova and Moritz Hoffmann for their continuous support and help. They provided many meaningful suggestions and proposals. Their expertise and experience was invaluable.\\\\

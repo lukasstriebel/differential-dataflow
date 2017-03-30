@@ -352,7 +352,7 @@ pub enum RegularPath {
 
 #[derive(Debug)]
 pub struct GroupBy {
-    group: Vec<Expr>,
+    group: Vec<Attribute>,
 }
 
 #[derive(Debug)]
@@ -362,7 +362,7 @@ pub struct OrderBy {
 
 #[derive(Debug)]
 pub struct OrderTerm {
-    expr: Expr,
+    variable_name: Attribute,
     asc: bool,
 }
 
@@ -1171,7 +1171,7 @@ named!(order_by<OrderBy >,
 named!(order_term<OrderTerm>,
     alt_complete!(
         chain!(
-            expr: expression ~
+            variable_name: attribute ~
             space ~
             asc: alt!(
                     tag_no_case_s!("asc") => { |_| true } |
@@ -1187,8 +1187,8 @@ named!(order_term<OrderTerm>,
                 tag!("") => { |_| true }
             ) ~
             space ~
-            expr: expression,
-        || {OrderTerm {expr: expr, asc: asc}}
+            variable_name: attribute,
+        || {OrderTerm {variable_name: variable_name, asc: asc}}
         )
     )
 );
@@ -1226,15 +1226,15 @@ named!(group_by<GroupBy>,
         space ~
         tag_no_case_s!("by") ~
         space ~
-        expressions: many1!(
+        variable_names: many1!(
             chain!(
-                expr: expression ~ 
+                variable_name: attribute ~ 
                 opt!(space) ~
                 opt!(char!(',')),
-                || expr
+                || variable_name
             )
         ),
-        || GroupBy{ group: expressions}
+        || GroupBy{ group: variable_names}
 
     )
 );
@@ -1255,6 +1255,19 @@ named!(variable_name<(String,String)>,
                 || (String::from(name), String::from(attribute))
             ) |
             char_only => {|attribute| (String::from(""), String::from(attribute))} 
+    )
+
+);
+
+named!(attribute<Attribute>,
+    alt_complete!(            
+            chain!(
+                name: char_only ~
+                char!('.') ~
+                attribute: char_only,
+                || Attribute{name:String::from(name), field:String::from(attribute)}
+            ) |
+            char_only => {|attribute| Attribute{name:String::from(""), field:String::from(attribute))}} 
     )
 
 );
