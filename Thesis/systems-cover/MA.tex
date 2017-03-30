@@ -29,7 +29,7 @@
   showstringspaces=false,
   columns=flexible,
   basicstyle={\small\ttfamily},
-  numbers=left,
+  numbers=none,
   numberstyle=\tiny,
   breaklines=true,
   breakatwhitespace=true,
@@ -72,12 +72,14 @@ In today's business world, Social Networks have become one of the most important
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Introduction}
+In this chapter, we explain which problems we aim to solve with this thesis. Furthermore we outline the structure of the thesis.
 \subsection{Motivation}
-In our modern digital age, the Internet is the largest centre of data and knownledge. The websites of large companies are accessed thousands of times a day. In order to cope with this huge amount of client requests, large sever farms were built. In these farms, hundreds of servers and switches are connected and request have to travel across multiple machines until they are answered. Thus, the need for a system that directs and balances the huge amount of request arises. The first step to deal with this challenge is to model this complicated network of computers as a property graph. In a second step, an algorithm determines how the request should best be directed in order to not overload any part of the network. This thesis focuses on the second step and proposes a program that can evaluate queries on a property graph, in order to determine weak links and find the optimal distribution of the work load.
+In our modern digital age, the Internet is the largest centre of data and knownledge. The websites of large companies are accessed thousands of times a day. Furthermore, the request do not only grow in size, but also become more complex and face higher demands from management. In order to cope with this huge amount of client requests, large sever farms were built. In these farms, hundreds of servers and switches are connected and request have to travel across multiple machines until they are answered. Thus, the need for a system that directs and balances the huge amount of request arises. Additionally, this system should be able to retrieve information from the network and execute algorithms such as Dijkstra's shortest path. The result of these operations are needed to make the right decision about controlling the distribution and processing of the user requests.\\\\
+The first step to deal with this challenge is to model this complicated network of computers as a property graph. A property graph is a graph which allows its vertices and edges to posses an unlimited number of attributes. Traditionally, very few attributes are allowed in a graph, e.g. a weight attribute on the edges. However, our porperty graph allows attribute of type string, float and boolean.\\ In a second step, an algorithm determines how the request should best be directed in order to not overload any part of the network. This thesis focuses on the second step and proposes a program that can evaluate queries on a property graph, in order to determine weak links and find the optimal distribution of the work load.
 \subsection{Structure of the Thesis}
 The Thesis has the following structure:\\
 First, we give an overview of the technologies used in the Thesis in Section 2.\\
-We continue by giving a detailed explanation of the query parser  in Chapter 3. In Section 4, we explain how the program sets up the dataflows according to the query. Next, we describe the experiments that were run in order to determine the performance of the program in Chapter 5. Finally, we draw our conclusion, provide an outlook and show potential for future work.
+We continue by giving a detailed explanation of the query parser  in Chapter 3. In Section 4, we explain how the program sets up the dataflows according to the query. Next, we describe the experiments that were run in order to determine the performance of the program in Chapter 5. An overview of other graph query languages and query plan generator can be found in section 6. Finally, we draw our conclusion, provide an outlook and show potential for future work.
 \clearpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -134,7 +136,7 @@ Finally, the result set can be modified in the \textbf{Solution Modifier Clause}
 \noindent The official PGQL Specifications can be accessed online at \cite{PGQLSpec}
 
 \subsection{Dataflow Programming}
-Traditionally, a program is a list of instructions to be executed by the computer. However, there are certain programming paradigms that do not conform to this idea. Dataflow oriented programming is one of them. In dataflow programming paradigm, a program is modeled as a directed graph of data flowing between operations.  Rather than explicitly defining the order of execution as most other programming paradigms do, dataflow programming specifies a network of nodes, between which the data is exchanged. In program execution, this means until a node's data buffer is non-empty, it remains idle. Only after the node receives an input, it begins to execute the operations that are defined in the program. Once the computation is completed, the resulting data is forwarded to the next node. Each node can be viewed as a black box, since the programmer does not have to worry what happens inside. His responsibilities lie only in the task of connecting the nodes in the correct manner.
+Traditionally, a program is a list of instructions to be executed by the computer. However, there are certain programming paradigms that do not conform to this idea. Dataflow oriented programming is one of them. In the dataflow programming paradigm, a program is modeled as a directed graph of data flowing between operations.  Rather than explicitly defining the order of execution as most other programming paradigms do, dataflow programming specifies a network of nodes, between which the data is exchanged. In program execution, this means until a node's data buffer is non-empty, it remains idle. Only after the node receives an input, it begins to execute the operations that are defined in the program. Once the computation is completed, the resulting data is forwarded to the next node. Each node can be viewed as a black box, since the programmer does not have to worry what happens inside. His responsibilities lie only in the task of connecting the nodes in the correct manner.
 
 
 \subsection{Differential Dataflow}
@@ -253,7 +255,7 @@ named!(path<(String, Connection)>,
 
 \end{minted}
 \subsection{Select Clause}
-The Select Clause of PGQL is very similar to the SQL one. Started by the keyword `Select' (line 3), a list of attributes is provided (line 5). If the user wishes to retrieve everything, he is to use the asterix sign (line 18). Aggregate functions like `Sum', `Avg' etc. may also be accessed (line 12). Attributes may be renamed with the keyword `as', but this function is currently not supported.\\
+The Select Clause of PGQL is very similar to the SQL one. Started by the keyword `Select' (line 3), a list of attributes is provided (line 5). If the user wishes to retrieve everything, he is to use the asterisk sign (line 18). Aggregate functions like `Sum', `Avg' etc. may also be accessed (line 12). Attributes may be renamed with the keyword `as', but this function is currently not supported.\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -457,8 +459,7 @@ named!(literal<Literal>,
     )
 );
  \end{minted}
- 
- Possible operateros are:\\
+ \\\\Possible operateros are:
  \begin{itemize}
  \item arithmetric: addition, subtraction, multiplication, division, modulo
  \item comperative: equals, not equals, greater, greater equals, smaller, smaller equals
@@ -523,7 +524,47 @@ named!(solution_modifier<(GroupBy, OrderBy, (i32, i32))>,
         || (group, order, limit)
     )
 );
- \end{minted}
+ \end{minted} 
+\\\\ The order by clause parses a number of variable field, which are returned as a vector. Every attribute can be either ascending or descending.\\\\
+\begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg,
+linenos]
+{rust}
+named!(order_by<OrderBy >,
+    chain!(
+        tag_no_case_s!("order") ~
+        space ~
+        tag_no_case_s!("by") ~
+        space ~
+        order_terms: many1!(
+            chain!(
+                order_term: order_term ~
+                opt!(space) ~
+                opt!(char!(',')),
+                || order_term
+                )
+            ),
+        || OrderBy{order: order_terms}
+    )
+);
+
+named!(order_term<OrderTerm>,
+        chain!(
+            expr: expression ~
+            space ~
+            asc: alt!(
+                    tag_no_case_s!("asc") => { |_| true } |
+                    tag_no_case_s!("desc") => { |_| false } |
+                    tag!("") => { |_| true }
+                ),
+            || {OrderTerm {expr: expr, asc: asc}}       
+    )
+);
+\end{minted}
 \clearpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -535,7 +576,7 @@ In this chapter we will discuss how we construct the dataflow from our queries.
 \caption{An overview of query evaluation}
 \end{figure}
 \subsection{Graph Loader}
-The Loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differential Dataflow, an entirely new parser had to be written. This parser was also built using nom. In order fo it to properly recognize a graph, the graph has to be supplied in the Vertex-Edge-List format\cite{EdgeList}. This format gives us a text file (.txt), which contains two lists. First, all the vertices and their attributes are described. The vertices are ordered ascing according to their ID. The IDs have to start at 1 and must be continuous.\\\\
+The loading of the graph plays a major part of the entire program execution time. To load a graph from a text file into differential Dataflow, an entirely new parser had to be written. This parser was also built using nom. In order fo it to properly recognize a graph, the graph has to be supplied in the Vertex-Edge-List format\cite{EdgeList}. This format gives us a text file (.txt), which contains two lists. First, all the vertices and their attributes are described. The vertices are ordered ascing according to their ID. The IDs have to start at 1 and must be continuous.\\\\
 \textbf{Small sample graph}
 \begin{lstlisting}
 1 * { 'Server' }             name:'center'   ip:'192.168.0.0'   ram:4
@@ -543,13 +584,13 @@ The Loading of the graph plays a major part of the entire program execution time
 3 * { 'Firewall' 'VM' }      name:'node2'    ip:'192.168.0.2'   ram:16.5
 4 * { 'Host' 'Server' 'VM' } name:'node3'    ip:'192.168.0.3'   ram:32.5
 5 * { 'Switch' }             name:'node4'    ip:'192.168.0.4'   ram:64.5
-1 2 'connectss' bandwidth:1.5 utilization:0.14
+1 2 'connects' bandwidth:1.5 utilization:0.14
 2 3 'connects' bandwidth:2.1 utilization:0.22
 2 4 'connects' bandwidth:1.1 utilization:0.38
 4 5 'connects' bandwidth:1.3 utilization:0.58
 \end{lstlisting}
 
-The graph parser looks as folllows:\\  
+\noindent A complete graph consists of at least one node (line 3) and at least one edge (line 4). Therefore, the graph parser looks as folllows:\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -566,7 +607,7 @@ named!(graph_parser<Graph>,
     )
 );
 \end{minted}
-\\Each vertex begins with an integer, representing the ID of the vertex, follow by an asterix. Subsequently the lables of the vertex are presented, delimited by curly brackets. At least one label has to be provided whereas an upper limit does not exist. Finally, all the attributes of the vertex are presented in a JSON-like fashion. \\
+\\\\Each vertex begins with an integer (line 3), representing the ID of the vertex, follow by an asterisk (line 5). Subsequently the lables of the vertex are presented (line 7), delimited by curly brackets. At least one label has to be provided whereas an upper limit does not exist. Finally, all the attributes of the vertex are presented in a JSON-like fashion (line 9). \\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -644,7 +685,7 @@ named!(attributes< Vec< (&str, Literal) > >,
     )
 );
 \end{minted}
-\\The edges of the graph are parsed in a very similiar way. There are two main differences: instad of an asterix, a second integer is given denoting the ID of the target vertex, while the first integer determines the ID of the source vertex. Additionally, edges must have exactly one single label. The rest remains unchanged in comparison to the vertex parser.
+\\\\The edges of the graph are parsed in a very similiar way. There are two main differences: instad of an asterix, a second integer is given denoting the ID of the target vertex (line 5), while the first integer determines the ID of the source vertex. Additionally, edges must have exactly one single label. The rest remains unchanged in comparison to the vertex parser.\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -676,17 +717,15 @@ named!(edge<GraphEdge>,
 );
 \end{minted}
 
-
-\clearpage
 \subsection{Construction of the Dataflow}
-The biggest challenge in the thesis was translating the PGQL query into a dataflow. As described in chapter 3, a query contains a vector of projections and a vector of constraints. We chose to apply the projections at the vey latest point in time. Thus, our evaluation begins with the second vector.\\\\
+The biggest challenge in the thesis was translating the PGQL query into a dataflow. As described in chapter 3, a query contains a vector of projections and a vector of constraints. We chose to apply the projections at the vey latest point in time. Thus, our evaluation begins with the second vector.
 \subsection{Constraint sorting}
 First, we iterate through the vector and sort the constraints by type:\\
 \begin{itemize}
 \item If the constraint is a path pattern, it is put into a seperate vector.
 \item If the constraint is an expression, we determine the name of the involved vertex or edge by recursively exploring the expression. Once the variable name is known, the expression is then pushed into a Hashmap of Vectors. For each variable there exists a seperate vector with expressions. This grouping helps tremendously when filtering the vertex set later on.
 \end{itemize}
-\textbf{Code sample}\\
+\textbf{Code sample}\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -917,7 +956,7 @@ for projection in &select{
 }
  \end{minted}
 \subsection{Evaluating an expression}
-It is of great importance to evaluate the expressions formulated in the query in the dataflow.\\\\
+It is of great importance to evaluate the expressions formulated in the query in the dataflow. Since expression can be nested an umlimited number of times, the only way to evaluate them is by using a recursive function. This function first evaluates the right hand side, then the left hand side and finally applies the desired operator. Exceptions are the Not Operater, which has only one side and expressions which can be evaluated immediately. Under this category falls the Literal, the Attribute of a vertex, the built-in functions and the label operator, which simply checks whether the requested label is present in the vertex' label vecotr.\\\\
 \begin{minted}[
 frame=lines,
 framesep=2mm,
@@ -963,6 +1002,30 @@ fn evaluate_expr (constraint: Expr, node: &Node) -> Literal {
 }
 
  \end{minted}
+ \subsection{Execution}
+ Since our program is a modul for differential dataflow, the differential dataflow repositiory has to be present in order to execute the program.\\\\
+\textbf{Execution Example}\quad The program can be run using the following command:\\\\
+ \begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg]
+{bash}
+$ cargo run --release --example pgql graph.txt query.txt true -- -w 32
+\end{minted}
+\\The --release argument allows for compiler optimizations and should speed up the execution of the program. The --example pgql argument specifies which program to run. The remaining 4 arguments are parsed by our program. First, we denote the name of the graph we want to parse. This argument has to be a text file with the graph in edge-list format (see section 4.1). The second argument gives a text file which contains all the queries that the user wishes to evaluate. Next a boolean specifies whether the edges in the graph are directed or not. In case they are not, all the edges in the graph text file will be cloned, inverted and added to the edge set. This means an edge from A to B posses the exact same properties as an edge from B to A. If this is not desired, then this argument should be set to false. Finally, we provide a number of arguments needed by the timely framework\footnote{http://www.frankmcsherry.org/timely-dataflow/timely/execute/fn.execute\_from\_args.html}. First, we define how many worker threads should be used to evaluate the query with the -w argument. This number is expected to be less or equal to the number of cores of the machine. Alternatively, one can add a -n argument to specify the number of processes an a -p argument to denote the ID of this process. If the program is to be distrbute over multiple machines, the -h argument should specify a text file in which all the hostnames and ports are defined.\\\\
+\textbf{Benchmark Example}
+We used a special python script with the goal to automate the benchmarking of our program.\\\\
+ \begin{minted}[
+frame=lines,
+framesep=2mm,
+baselinestretch=1.2,
+fontsize=\footnotesize,
+bgcolor=bg]
+{bash}
+$ python run_benchmark.py graph.txt query.txt
+\end{minted}
 \clearpage
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1412,9 +1475,10 @@ Open Source      &      &         &          &          &          &          &
 \subsection{Conclusion}
 In this thesis we presented qlidaf, a program to evaluate PGQL queries in a dataflow environment. We showed how our program parsers queries and graphs, and then evaluates said query on the graph.
 \subsection{Future Work}
-\textbf{Shortest Path} \quad Extend the evaluator to find the shortest path.\\
-\textbf{Additional Joins} \quad Enable joins in the value constraint, e.g. v.age = u.age.\\
-\textbf{Query Optimizer} \quad Implement a query optimizer.
+\textbf{Shortest Path} \quad Extend the evaluator to find the shortest path.\\\\
+\textbf{Additional Joins} \quad Enable joins in the value constraint, e.g. v.age = u.age.\\\\
+\textbf{Query Optimizer} \quad Implement a query optimizer.\\\\
+\textbf{Changes in the Graph} \quad Throughout all the experiments, our graphs never changed at all. Since this program was built on differential dataflow, which excels at dealing with dynamic graphs, it would make a lot of sense to have periodic input, that adds or removes parts of the graph.
 \subsection{Acknowledgements}
 I would like to thank my supervisors John Liagouris, Desislava Dimitrova and Moritz Hoffmann for their continuous support and help. They provided many meaningful suggestions and proposals. Their expertise and experience was invaluable.\\\\
 I would also like to thank Professor Roscoe for taking the time to supervise my thesis.
