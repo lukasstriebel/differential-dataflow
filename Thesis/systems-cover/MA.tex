@@ -96,14 +96,17 @@ The Property Graph Query Language (PGQL) was developed by Oskar van Rest at Orac
 \item Where Clause (required)
 \item Solution Modifier Clause (optional)
 \end{itemize}
-In the following, we will give a short overview of the four clauses. We will go into more detail in section 3, in which we explain precisely how each clause has to be parsed.\\\\
-In the \textbf{Path Clause} custom path patterns are defined, which are to be used again in the Where Clause.\\
+In the following, we will give a short overview of the four clauses. We will go into more detail in section 3, in which we explain precisely how each clause has to be parsed.
+
+\subsubsection{Path Clause} custom path patterns are defined, which are to be used again in the Where Clause.\\\\
 \textbf{Example:}
 \begin{verbatim}
 PATH connects_to := (:Generator) --> (:Connector WITH status = 'OPERATIVE')
  \end{verbatim}
-\noindent In this example, we define connects\_to as an edge between a generator and an operating connector.\\\\
-The \textbf{Select Clause} bears great similarity to the SQL one. Here, the set of properties one wishes to retrieve is defined. Possible Selections are either\\
+\noindent In this example, we define connects\_to as an edge between a generator and an operating connector.
+
+\subsubsection{Select Clause}
+The PGQL Select Clause bears great similarity to the SQL one. Here, the set of properties one wishes to retrieve is defined. Possible Selections are either:
 \begin{itemize} 
 \item everything, indicated by the use of * 
 \item certain attributes of edges and/or vertices
@@ -113,7 +116,7 @@ The \textbf{Select Clause} bears great similarity to the SQL one. Here, the set 
 \begin{verbatim}
 SELECT v.name, AVG(v.age)
  \end{verbatim} 
- Currently, there are five types of aggregations supported:\\
+ Currently, there are five types of aggregations supported:
  \begin{itemize} 
 \item COUNT, returns the number of tuples in the solution 
 \item MAX, returns the maximum value of an attribute in any tuple. The specified attribute has to be numeric.
@@ -122,16 +125,18 @@ SELECT v.name, AVG(v.age)
 \item AVG, returns the average of an attribute over all the tuple. The specified attribute has to be numeric.
 \end{itemize}
 
-The most complex part of the query is the \textbf{Where Clause}. In this section, all the requirements that the edges and vertices of the result set have to fulfill are specified.\\
+\subsubsection{Where Clause}
+The most complex part of the query is the Where Clause. In this section, all the requirements that the edges and vertices of the result set have to fulfill are specified.\\\\
 \textbf{Example:}
 \begin{verbatim}
 WHERE v.name = 'Alice', v.age > 30, w.name != 'Bob', v -> w
 \end{verbatim}
 
-Finally, the result set can be modified in the \textbf{Solution Modifier Clause}. This Clause can be broken down into four subsections, which are all extremly similiar to their SQL counterpart:\\\\
+\subsubsection{Solution Modifier Clause}
+Finally, the result set can be modified in the Solution Modifier Clause. This Clause can be broken down into four subsections, which are all extremly similiar to their SQL counterpart:\\\\
 \textbf{Group by} \quad In the group by the developer specifies the attributes that shall be used for the aggregation in the select clause.\\\\
 \textbf{Order by} \quad A set of attributes that determine the order of the results, either ascending or descending.\\\\
-\textbf{Limit} \quad Provides the maximum cardinality of the result set.\\\\
+\textbf{Limit} \quad Denotes the maximum cardinality of the result set.\\\\
 \textbf{Offset} \quad Denotes how many tuples of the result set shall be skipped.\\\\
 
 \noindent The official PGQL Specifications can be accessed online at \cite{PGQLSpec}
@@ -174,7 +179,8 @@ struct BinaryTree {
 
 
 \subsection{Nom}
-Our Query Parser is built using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process. As of today, there exist dozends of parser written with nom, for example for gif, csv and tar files.\\\\
+Our Query Parser is built using nom, \cite {Nom}. Nom was developed by Geoffroy Couprie. It is a byte oriented, zero copy, streaming Parser Library written in Rust. The library provides macros, functions and enums which faciliate the parsing process. As of today, there exist dozends of parser written with nom, for example for gif, csv and tar files.
+\subsubsection{Macros}
 The most commonly used macros were:
 \begin{itemize} 
 \item do\_parse!: Takes a list of parsers as inputs and applies them sequentially, finally returns a tupel.
@@ -184,6 +190,14 @@ The most commonly used macros were:
 \item named!: Faciliates the creation of new custom parsers.
 \item many0!: Applies the parser 0 or more times.
 \item many1!: Applies the parser 1 or more times. 
+\end{itemize}
+\subsubsection{Functions}
+The following useful functions were either provided by nom or implemented by us:
+\begin{itemize} 
+\item space: Recognizes whitespace and skips it.
+\item char\_only: Recognizes alphabetical characters (no special charactes) and returns them as a String.
+\item float: Recognizes float numbers.
+\item boolean: Recognizes either true or false.
 \end{itemize}
 
 Nom is open-source and available for download at \cite{GitNom}.
@@ -1573,12 +1587,12 @@ GRAPHiQL is an intuitive query language for graph analytics, which allows develo
 In this thesis we presented qlidaf, a program to evaluate PGQL queries in a dataflow environment. We showed how our program parsers queries and graphs, and then evaluates said query on the graph.\\\\
 Furthermore we provided an thorough evaluation of the performance of our program to showcase its competitveness.
 \subsection{Future Work}
-\textbf{Shortest Path} \quad Unfortunately, there is currently no support for evaluating path expressions. This is a rather pressing issue, since paths are of great interests in network routing. In a first step the evaluator should be extended with the functionality to find the shortest path. Subsequently, special properties of the paths can be taken into consideration. These include forbidding the visitation of certain vertices or requiring that a certain type of vertex, e.g. a firewall, has to be included in the path atleast one or more times.\\\\
-\textbf{Additional Joins} \quad Currently, Joins are only happening when putting an edge between two vertices. Unfortunately, certain problems stem from this. For example, the query: \begin{verbatim}SELECT * WHERE v.age = u.age\end{verbatim} cannot be evaluate at this time. This query requires us to join the vertex set with itself on the age attribute, which does not pose a problem. The underlying difficulty is to recognize that there is an actual need to join the sets. Therefore in order to fix this issue, we would have to extend the handling of the value constraints, so we can recognize these special requirements. \\\\
-\textbf{Query Optimizer} \quad In the current version of the program, all queries are evaluate in the same fashion. We start with the selections of the vertex set, join them with the edge set, and finally apply the projections. Pushing the selections down is usually a good practice, however, under certain conditions this approach is suboptimal. Therefore the implemention of a query optimizer is a must once we get to larger graphs and more complicated queries.\\\\
-\textbf{Changes in the Graph} \quad Throughout all the experiments, our graphs never changed at all. Since this program was built on differential dataflow, which excels at dealing with dynamic graphs, it would make a lot of sense to have periodic input, that adds or removes parts of the graph.
+\subsubsection{Shortest Path} Unfortunately, there is currently no support for evaluating path expressions. This is a rather pressing issue, since paths are of great interests in network routing. In a first step the evaluator should be extended with the functionality to find the shortest path. Subsequently, special properties of the paths can be taken into consideration. These include forbidding the visitation of certain vertices or requiring that a certain type of vertex, e.g. a firewall, has to be included in the path atleast one or more times.
+\subsubsection{Additional Joins} Currently, Joins are only happening when putting an edge between two vertices. Unfortunately, certain problems stem from this. For example, the query: \begin{verbatim}SELECT * WHERE v.age = u.age\end{verbatim} cannot be evaluate at this time. This query requires us to join the vertex set with itself on the age attribute, which does not pose a problem. The underlying difficulty is to recognize that there is an actual need to join the sets. Therefore in order to fix this issue, we would have to extend the handling of the value constraints, so we can recognize these special requirements. 
+\subsubsection{Query Optimizer} In the current version of the program, all queries are evaluate in the same fashion. We start with the selections of the vertex set, join them with the edge set, and finally apply the projections. Pushing the selections down is usually a good practice, however, under certain conditions this approach is suboptimal. Therefore the implemention of a query optimizer is a must once we get to larger graphs and more complicated queries.
+\subsubsection{Changes in the Graph} Throughout all the experiments, our graphs never changed at all. Since this program was built on differential dataflow, which excels at dealing with dynamic graphs, it would make a lot of sense to have periodic input, that adds or removes parts of the graph.
 \subsection{Acknowledgements}
-I would like to thank my supervisors John Liagouris, Desislava Dimitrova and Moritz Hoffmann for their continuous support and help. They provided many meaningful suggestions and proposals. Their expertise and experience was invaluable.\\\\
+I would like to thank my supervisors John Liagouris, Desislava Dimitrova and Moritz Hoffmann for their continuous support and help. They provided many meaningful suggestions and proposals. Their expertise and experience was invaluable.
 I would also like to thank Professor Roscoe for taking the time to supervise my thesis.
 
 \clearpage
